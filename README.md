@@ -4,6 +4,10 @@
 
 DeepSeek Harness 插件：显示各供应商**可用周期限额 / 余额 / 报告用量费用**——sidebar 脚部小组件 + 详情页。
 
+支持 Windows 桌面端与 Web 界面。Windows 桌面端使用 `desktop` profile，入口位于展开后的侧边栏底部；也可从「设置 → 用量监控设置」进入。桌面侧栏收起时，入口随侧栏隐藏，重新展开即可恢复。
+
+桌面兼容性以 **DeepSeek Harness Desktop 0.2.0-rc.2** 为验收基线。完整证据与能力边界见 [Windows 桌面适配记录](docs/windows-desktop-adaptation.md)。
+
 查询覆盖随 [Token-Consumption-Monitoring](http://192.168.3.100:3300/lqy/Token-Consumption-Monitoring)（`main`，v1.3.x）的
 [docs/query-coverage.md](http://192.168.3.100:3300/lqy/Token-Consumption-Monitoring/src/branch/main/docs/query-coverage.md)
 重构，供应商注册表按「凭据类别 × 地域」拆分（与上游「一个页面保存一种凭据」一致；普通 API Key、Management Key、Admin Key 不互相尝试）：
@@ -72,7 +76,7 @@ Windows 专属方法（WebView2 控制台、本地 SQLite、本机 Codex CLI 登
 
 ## 功能
 
-- **小组件（sidebar 脚部）**：**经 DSH 官方槽位 `sidebar.footer.action` 嵌入**侧边栏底部，与其他脚部按钮/组件同处内容流、并排渲染，**不扫描/不劫持 DOM、不做 fixed 悬浮**。v1.1.1 起宽栏紧凑条为**三行**：① **连接状态 · 今日 token 消耗**（· `×N` 候选计数，仅当候选 > 1）——今日 = 所有 current 供应商当日消耗求和（自然日重置）；连接状态 = DSH 事件通道是否活着（`state.traffic.channelAlive`，本次启动后是否真收到 `session/event`）× 限额取数健康度，取值 `已连接` / `已连接 · 降级`（有 `enabled ∧ added` 供应商取数失败，个数进 title）/ `待命`（通道尚未见过流量，但已有已配置供应商——**不把「插件刚起来」谎报成断开**）/ `未连接`（通道未见过流量且无任何已配置供应商）；② **在用供应商 · 模型**——显示页 = 侧栏会话列表当前选中的会话（官方 `sessions.list.current`），取该会话**最近一次**真实 LLM 调用的供应商 + 模型名；③ **元信息**——限额状态（该供应商 `headline`）· **重置倒计时**；**不显示「最近一次调用」的相对时间**（小组件看的是配额与连接，不是调用新鲜度）。`×N` 候选计数跟在第 1 行「今日用量」之后（与其它信息同字号，不缩小）。倒计时由宿主下发的**原始重置时刻**（`entries[].resetAt` / `headline.resetAt`，epoch-毫秒，仅供应商确实给出时刻时存在）在客户端精确计算：**< 1 天 → `*h*m`**（如 `2h13`）、**≥ 1 天 → `*d*h`**（如 `1d19h`），已过期显示「即将重置」；宿主只给文案、没有时刻时**原样回落**（如「约 43 小时后重置」），绝不推算时刻——`formatReset` 的整小时四舍五入不再限制展示精度。第 2/3 行同字号（12px，层级靠颜色不靠字号）、单行省略，完整内容在各自 `title` 与按钮 `title` 里兜底；**容器宽 < 200px**（侧栏被拖窄）时自动收起第 3 行。多会话并行用不同供应商时**各页互不串**，切会话经 sessions 订阅即时重拉；同页内后台刷新为**完成后调度**（每次请求结束再等 10s，失败按 10→20→40→60s 退避），同一时刻最多一个后台 GET，页面隐藏时暂停、恢复可见时立即刷新一次；当前页尚无调用（含新会话/空页）第 2 行严格显示「暂无调用」，不回退其它页。点击展开 Popover 查看各供应商限额；rail 窄栏自动切换图标态。弹层列表仍显示**当前供应商**（DSH 启用 ∩ 近期流量；组织账务等无 DSH 路由的供应商恒为候选；冷启动或近 24h 无流量时按启用清单兜底并标注）
+- **小组件（sidebar 脚部）**：**经 DSH 官方槽位 `sidebar.footer.action` 嵌入**侧边栏底部，与其他脚部按钮/组件同处内容流、并排渲染，**不扫描/不劫持 DOM、不做 fixed 悬浮**。v1.1.1 起宽栏紧凑条为**三行**：① **连接状态 · 今日 token 消耗**（· `×N` 候选计数，仅当候选 > 1）——今日 = 所有 current 供应商当日消耗求和（自然日重置）；连接状态 = DSH 事件通道是否活着（`state.traffic.channelAlive`，本次启动后是否真收到 `session/event`）× 限额取数健康度，取值 `已连接` / `已连接 · 降级`（有 `enabled ∧ added` 供应商取数失败，个数进 title）/ `待命`（通道尚未见过流量，但已有已配置供应商——**不把「插件刚起来」谎报成断开**）/ `未连接`（通道未见过流量且无任何已配置供应商）；② **在用供应商 · 模型**——显示页 = 侧栏会话列表当前选中的会话（旧版读取 `sessions.list.current`，0.2 读取 `sessions.list.byId` 中唯一的 `retainedBy.mainView` 会话），取该会话**最近一次**真实 LLM 调用的供应商 + 模型名；③ **元信息**——限额状态（该供应商 `headline`）· **重置倒计时**；**不显示「最近一次调用」的相对时间**（小组件看的是配额与连接，不是调用新鲜度）。`×N` 候选计数跟在第 1 行「今日用量」之后（与其它信息同字号，不缩小）。倒计时由宿主下发的**原始重置时刻**（`entries[].resetAt` / `headline.resetAt`，epoch-毫秒，仅供应商确实给出时刻时存在）在客户端精确计算：**< 1 天 → `*h*m`**（如 `2h13`）、**≥ 1 天 → `*d*h`**（如 `1d19h`），已过期显示「即将重置」；宿主只给文案、没有时刻时**原样回落**（如「约 43 小时后重置」），绝不推算时刻——`formatReset` 的整小时四舍五入不再限制展示精度。第 2/3 行同字号（12px，层级靠颜色不靠字号）、单行省略，完整内容在各自 `title` 与按钮 `title` 里兜底；**容器宽 < 200px**（侧栏被拖窄）时自动收起第 3 行。多会话并行用不同供应商时**各页互不串**，切会话经 sessions 订阅即时重拉；同页内后台刷新为**完成后调度**（每次请求结束再等 10s，失败按 10→20→40→60s 退避），同一时刻最多一个后台 GET，页面隐藏时暂停、恢复可见时立即刷新一次；当前页尚无调用（含新会话/空页）第 2 行严格显示「暂无调用」，不回退其它页。点击展开 Popover 查看各供应商限额；Web 的 rail 窄栏自动切换图标态；Windows 桌面收起侧栏时入口随之隐藏。弹层列表仍显示**当前供应商**（DSH 启用 ∩ 近期流量；组织账务等无 DSH 路由的供应商恒为候选；冷启动或近 24h 无流量时按启用清单兜底并标注）
 - **详情页**：供应商分栏（kanban 风，仅已添加供应商），栏头状态胶囊 + 限额/用量/费用条目卡片；刷新历史默认收起；刷新全部 / 设置入口
 - **设置**：原生设置卡片 + 详情页内面板；配置界面为「**供应商页目录（仅显示已添加）→ 每个供应商独立配置页**」——目录行内可直接启停/测试连接，点「打开配置」进入该供应商单页（凭据类别徽标、**当前额度预览**、按 needs 动态渲染的密钥字段、Base URL/警告·临界阈值、测试连接、保存）；目录底部「可添加供应商」折叠列表提供手动添加入口；标题行含 **⟳ 重新扫描** 与最近扫描结果；全局轮询间隔/保留期单独一组；OpenCode 页含 allowance Token 与 org id
 - **调度**：默认 60s 轮询（10–3600 可配）；同供应商 in-flight 合并去重；失败指数退避（30s→1m→2m→4m→10m；401/403 → 30min）；手动刷新立即执行
@@ -129,7 +133,25 @@ test/storage.mjs  本地用量数据存储单元测试
 
 ## 安装
 
-请先安装 Git、Node.js 与 DSH，并确认 `dsh --version` 可以正常运行。以下命令使用 `web` profile；其他 profile 请替换命令中的名称。当前验证环境为 Node.js 24.19.0、DSH 0.1.2-rc.1。
+### Windows 桌面端
+
+先启动一次 DeepSeek Harness Desktop，完成初始化后完全退出应用。使用桌面安装目录自带的 `dsh.cmd`，将安装包添加到 **`desktop` profile**。安装到 `web` profile 的插件不会自动出现在桌面端。
+
+```powershell
+# 根据实际安装位置修改路径。
+$desktopCli = 'D:\AI\DeepSeek- Harness\resources\runtime\cli\bin\dsh.cmd'
+$archivePath = (Resolve-Path ./dsh-token-quota-1.4.0.tgz).Path
+& $desktopCli plugin --profile desktop add "file:$archivePath"
+& $desktopCli plugin --profile desktop list --depth 0
+```
+
+重新打开桌面应用后，展开左侧栏即可看到用量组件。点击组件可打开详情或设置；原生设置左侧另有「用量监控设置」入口。源码开发时也可执行 `& $desktopCli plugin --profile desktop add "link:$((Get-Location).Path)"`，但必须保留源码目录及其依赖。
+
+**DeepSeek 账户**：登录账户与 API Key 可属于同一账户，使用现有 DeepSeek 供应商页即可，无需重复添加账户。桌面登录凭证与余额接口使用的 API Key 不可互换；仅登录桌面应用时，请在该页填写同一账户的 API Key，或配置 Harness 的 DeepSeek API Key 路由后重新扫描。插件不会把未查询到的余额显示为零。
+
+### Web / CLI
+
+请先安装 Git、Node.js 与 DSH，并确认 `dsh --version` 可以正常运行。以下命令使用 `web` profile；其他 CLI profile 请替换命令中的名称。
 
 快速添加（源码目录即本仓库，或 `npm pack` 出的压缩包）：
 
@@ -184,7 +206,7 @@ dsh plugin --profile web add $archivePath
 
 安装后重新启动 `dsh --profile web`。压缩包不包含 DSH 与第三方依赖，首次安装仍可能需要联网下载依赖。
 
-装好后在 DSH 设置页（插件清单 → 用量监控卡片）配置各供应商密钥，或点小组件「详情 → 设置」。
+装好后在 DSH「设置 → 用量监控设置」配置各供应商密钥，或点小组件「详情 → 设置」。
 
 
 ### 升级与检查
@@ -207,6 +229,7 @@ npm test                # 单元测试与宿主集成回归
 npm run test:pack        # 安装包入口与文件清单验证
 npx playwright install chromium
 npm run test:browser     # Chromium 键盘、表单失败与窄屏交互
+npm run test:desktop -- --app "C:/path/DeepSeek Harness.exe" # Windows 安装版、独立测试 profile
 node test/smoke.mjs      # 数据层：13 供应商解析 / 端点校验 / 多币种 / 分页 / 401 / CC 重置时间
 node test/detect.mjs     # 自动探测：路由映射 / 地域 / 凭据类别守门 / 去重
 node test/mock-dsh.mjs   # 宿主半：路由 / 事件折叠 / 设置热更新 / 自动填入 / added 推导 / /rescan / 退避
@@ -238,10 +261,18 @@ node test/storage.mjs    # 本地用量数据存储
 
 ```bash
 npm ci --ignore-scripts
-npm test              # 57 个顶层测试项
-npm run test:browser  # 6 个 Chromium 测试（首次需 npx playwright install chromium）
+npm test              # 单元与宿主集成测试
+npm run test:browser  # Chromium 测试（首次需 npx playwright install chromium）
 npm run test:pack
 ```
+
+桌面安装包验收使用真实安装版与隔离的 `DSH_HOME`、Chromium 目录，保留每次结果，不修改日常 profile：
+
+```powershell
+npm run test:desktop -- --app 'D:\AI\DeepSeek- Harness\DeepSeek Harness.exe' --package 'D:\path\dsh-token-quota-1.4.0.tgz' --output '.scratch\desktop-package-check'
+```
+
+输出目录必须未使用过。脚本检查 `dsh-app:` 页面中的侧栏、详情焦点、设置保存及持久化、重新扫描、原生设置入口与侧栏收起/恢复，保存 `report.json` 和截图。未传 `--package` 时使用源码链接。脚本不会发送聊天消息或配置真实供应商密钥；真实账户余额与计费用量另行验证。
 
 按需运行基准（不进入默认测试）：
 

@@ -1,5 +1,18 @@
 import { test, expect } from "@playwright/test";
 
+test("wide sidebar detail and settings return focus to the persistent widget", async ({ page }) => {
+  await page.goto("/");
+  const opener = page.locator(".qm-strip");
+  for (const name of ["详情", "设置"]) {
+    await opener.click();
+    await page.locator(".qm-pop").getByRole("button", { name, exact: true }).click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.keyboard.press("Escape");
+    await expect(page.getByRole("dialog")).toHaveCount(0);
+    await expect(opener).toBeFocused();
+  }
+});
+
 test("settings trap keyboard focus, preserve organization, and retain a rejected draft", async ({ page }) => {
   await page.goto("/");
   // 0.1.7：设置页本身在设置面板内容列；小组件里的「设置」入口仍打开同一面板的弹层形态

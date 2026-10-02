@@ -1,0 +1,65 @@
+{
+  "verifiedAt": "2026-10-02T18:30:13.943Z",
+  "archive": "dsh-token-quota-1.4.0.tgz",
+  "sha256": "be7e0899c7eb3e899a09bbd5f215e56b4b44c49cb4a27fe646fc89ba345ea929",
+  "baseCommit": "ca23a9603d64fdd701c40baf453b337749524bc2",
+  "upstreamCommit": "639ed015397290b3745d163aafe02ffee4aa3f84",
+  "packageContentsMatchWorkspace": true,
+  "unitAndHostTests": {
+    "passed": 67,
+    "failed": 0
+  },
+  "browserTests": {
+    "passed": 7,
+    "failed": 0
+  },
+  "desktopPackageChecks": {
+    "passed": 7,
+    "failed": 0
+  },
+  "dailyProfileModified": false,
+  "committed": false,
+  "pushed": false,
+  "notRun": [
+    "real-provider-balance",
+    "paid-chat-usage"
+  ],
+  "previousAttempts": [
+    {
+      "directory": ".scratch/desktop-acceptance-01",
+      "status": "failed",
+      "reason": "dialog focus return"
+    },
+    {
+      "directory": ".scratch/desktop-acceptance-02",
+      "status": "failed",
+      "reason": "incorrect Web rail expectation on Windows"
+    },
+    {
+      "directory": ".scratch/desktop-acceptance-03",
+      "status": "failed",
+      "reason": "incorrect localized reopen button label"
+    },
+    {
+      "directory": ".scratch/desktop-acceptance-04",
+      "status": "passed",
+      "source": "source-link"
+    },
+    {
+      "directory": ".scratch/desktop-package-acceptance-01",
+      "status": "passed",
+      "source": "npm-package"
+    },
+    {
+      "directory": ".scratch/desktop-package-acceptance-final",
+      "status": "failed",
+      "reason": "settings screenshot timeout"
+    },
+    {
+      "directory": ".scratch/desktop-package-acceptance-20261003",
+      "status": "passed",
+      "source": "npm-package",
+      "sha256": "be7e0899c7eb3e899a09bbd5f215e56b4b44c49cb4a27fe646fc89ba345ea929"
+    }
+  ]
+}

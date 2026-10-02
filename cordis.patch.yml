@@ -1,9 +1,10 @@
-# dsh-token-quota bundle patch: inserts the dual-face plugin row into the web
-# profile roster. Activate with
+# dsh-token-quota bundle patch: inserts the dual-face plugin row into a Web
+# or Windows Desktop profile roster. Activate with
 #   dsh plugin --profile web add link:<此目录绝对路径>
+#   dsh plugin --profile desktop add link:<此目录绝对路径>
 # The node half (exports ".") runs in the host process; the `dsh.client`
 # declaration in package.json makes the browser half (exports "./client",
-# served at /plugins/<id>/client.js) load in the web GUI.
+# served at /plugins/<id>/client.js) load in the shared Web/Desktop GUI.
 - insert:
     - id: dsh-token-quota
       name: 'dsh-token-quota'

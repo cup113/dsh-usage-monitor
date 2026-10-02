@@ -48,11 +48,11 @@ v0.3 auto-detect: every plain API key present in the DSH seam (`llm-deepseek` se
 _Avoid_: guessing by key prefix (upstream forbids it)
 
 **小组件 (Widget)**:
-The compact, always-visible DSH GUI display showing the harness's connection to the plugin and which model supplier the currently displayed page is using. Since v0.2 it is embedded through the official `sidebar.footer.action` slot (list, keyed `dsh-token-quota`) rendered by the sidebar shell in the foot area in normal content flow — no DOM scraping, no floating/fixed panel — and switches to an icon-only rail state when the sidebar collapses. Since v1.2 the wide strip is **three lines**: **连接状态** · **当日消耗量** · the candidate count (line 1), the **在用供应商** of the **当前显示页** (line 2; the session selected in the session browser = official `sessions.list.current`; the client subscribes and refetches immediately on page switch), then the page's meta line — quota state and **重置倒计时** (line 3). Its Popover lists **当前供应商** quota entries.
+The compact display in the DSH sidebar showing **连接状态**, **当日消耗量**, the **在用供应商** of the **当前显示页**, and its quota state and **重置倒计时**. It provides access to **当前供应商** quota entries and the **详情页**; in Windows Desktop it is visible while the sidebar is expanded.
 _Avoid_: panel, card
 
 **当前显示页 (Current Page)**:
-The one session the user currently views in the web GUI — `ctx.sessions.list.getSnapshot().current` on the client. The compact strip is scoped to it: per-session traffic (`sessionRouteSeen`) selects that page's most recent call, so concurrent sessions using different suppliers never bleed into each other; a page with no calls shows 暂无调用 (never falls back to another page). Absent `?session=` the state endpoint still returns the global latest (legacy).
+The single session displayed in the main view of the Web or Windows Desktop interface, excluding sessions merely retained in the sidebar or running in the background. If no session is displayed, the displayed session is ambiguous, or it has no calls, the widget shows 暂无调用 without borrowing another session's supplier.
 _Avoid_: active tab in OS browser, foreground window
 
 **详情页 (Detail Page)**:

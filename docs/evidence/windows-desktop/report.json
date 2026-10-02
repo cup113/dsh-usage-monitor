@@ -1,0 +1,22 @@
+{
+  "startedAt": "2026-10-02T18:29:15.671Z",
+  "status": "passed",
+  "checks": [
+    "desktop-custom-scheme-state",
+    "sidebar-widget",
+    "details-and-focus-return",
+    "settings-persist-through-desktop-transport",
+    "optional-services-and-rescan",
+    "native-settings-section",
+    "desktop-collapse-reopen-and-dialog-bounds"
+  ],
+  "source": "npm-package",
+  "packageSha256": "be7e0899c7eb3e899a09bbd5f215e56b4b44c49cb4a27fe646fc89ba345ea929",
+  "runtime": {
+    "version": "0.2.0-rc.2",
+    "electron": "44.0.0",
+    "node": "24.18.1"
+  },
+  "protocol": "dsh-app:",
+  "finishedAt": "2026-10-02T18:29:27.336Z"
+}

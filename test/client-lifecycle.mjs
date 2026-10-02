@@ -71,10 +71,10 @@ function client(fetch) {
   vm.runInNewContext(readFileSync(new URL("../lib/client.js", import.meta.url), "utf8"), context);
   // 「当前显示页」订阅源：与官方 sessions.list 同形（getSnapshot/subscribe）
   const sessionListeners = new Set();
-  let current = "";
+  let snapshot = { current: "" };
   const sessions = {
     list: {
-      getSnapshot: () => ({ current }),
+      getSnapshot: () => snapshot,
       subscribe(fn) { sessionListeners.add(fn); return () => sessionListeners.delete(fn); },
     },
   };
@@ -104,7 +104,11 @@ function client(fetch) {
     resetTimers: () => { timers.length = 0; },
     /** 切到某个会话页（等价于官方 sessions.list.current 变化）。 */
     setSession(id) {
-      current = id;
+      snapshot = { current: id };
+      for (const fn of [...sessionListeners]) fn();
+    },
+    setSnapshot(next) {
+      snapshot = next;
       for (const fn of [...sessionListeners]) fn();
     },
     timers,
@@ -276,9 +280,16 @@ test("a page hidden at mount does not fetch until it becomes visible", async () 
   } finally { await act(async () => { tree?.unmount(); }); }
 });
 
-test("a late response from page A never enters page B display or cache", async () => {
+for (const generation of ["legacy", "desktop"]) test(`${generation}: a late response from page A never enters page B display or cache`, async () => {
   const net = fakeFetch();
-  const { Component, setSession } = client(net.fetch);
+  const harness = client(net.fetch);
+  const { Component } = harness;
+  const setSession = generation === "legacy" ? harness.setSession : (id) => harness.setSnapshot({
+    byId: {
+      background: { id: "background", retainedBy: { sidebarView: 1, workspaceOperation: 1 } },
+      [id]: { id, retainedBy: { mainView: 1 } },
+    },
+  });
   let tree;
   try {
     await act(async () => { setSession("A"); });
@@ -299,6 +310,32 @@ test("a late response from page A never enters page B display or cache", async (
     assert.ok(!line2(tree).includes("B-page"), "切回 A 不得残留 B 的供应商");
     await act(async () => { net.ok(net.lastGet(), stateFor("A-fresh")); });
     assert.ok(line2(tree).includes("A-fresh"));
+  } finally { await act(async () => { tree?.unmount(); }); }
+});
+
+test("desktop: empty, background-only and ambiguous views never request global usage", async () => {
+  const net = fakeFetch();
+  const { Component, setSnapshot } = client(net.fetch);
+  let tree;
+  try {
+    tree = await mount(Component, {});
+    await act(async () => { net.ok(net.lastGet(), { ...stateFor(""), active: null }); });
+    for (const snapshot of [
+      { byId: {} },
+      { byId: { other: { id: "other", retainedBy: { sidebarView: 1 } } } },
+      { byId: { a: { id: "a", retainedBy: { mainView: 1 } }, b: { id: "b", retainedBy: { mainView: 1 } } } },
+      { current: null, byId: { a: { id: "a", retainedBy: { mainView: 1 } } } },
+    ]) {
+      await act(async () => { setSnapshot(snapshot); });
+      assert.equal(net.gets().length, 1, "空页状态不应触发其它会话或全局请求");
+      assert.match(net.lastGet().url, /\?session=$/);
+    }
+    await act(async () => { setSnapshot({ byId: { a: { id: "a", retainedBy: { mainView: 1 } } } }); });
+    assert.match(net.lastGet().url, /\?session=a$/);
+    await act(async () => { net.ok(net.lastGet(), stateFor("active-a")); });
+    await act(async () => { setSnapshot({ byId: {} }); });
+    assert.match(net.lastGet().url, /\?session=$/);
+    assert.ok(!line2(tree).includes("active-a"));
   } finally { await act(async () => { tree?.unmount(); }); }
 });
 
