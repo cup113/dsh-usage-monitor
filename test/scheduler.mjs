@@ -52,11 +52,13 @@ test("credential replacement and disposal discard late results", async () => {
   resolve(success);
   assert.equal(await pending, null);
   assert.equal(f.history.length, 0);
+  assert.equal(f.scheduler.getState("a").lastSuccessAt, null);
   const next = f.scheduler.run("a");
   await Promise.resolve();
   f.scheduler.dispose();
   resolve(success);
   assert.equal(await next, null);
+  assert.equal(f.scheduler.getState("a").lastSuccessAt, null);
 });
 test("thrown failures preserve data and a successful manual retry resets delay", async () => {
   let fail = false;

@@ -1,6 +1,6 @@
 # Windows 桌面适配记录
 
-日期：2026-10-03（Asia/Shanghai）。本次是 v1.4.0 工作区的兼容性修改，未发布新版本。
+日期：2026-10-03（Asia/Shanghai）。v2.0.0 包含 Windows 桌面兼容性与侧栏设置迭代；此前 v1.4.0 候选包的验收记录按原始版本保留。
 
 ## 上游与安装环境
 
@@ -30,20 +30,33 @@
 
 不新增第二个 DeepSeek 余额供应商。账户与 API Key 属于同一账户时，在现有 DeepSeek 页面填写 API Key 即可。仅有桌面登录态时，插件会说明凭据要求，不将未知余额视为零。直接读取登录账户的平台钱包未纳入本次实现。
 
+## 侧栏与设置迭代
+
+侧栏主区域单击进入“概览”，独立箭头切换完整与紧凑显示。宽度不足 200 CSS px 时自动降级为紧凑；自动降级不覆盖用户选择。Windows 宿主收起侧栏后宽度为零，卡片随宿主隐藏；展开后恢复。Web 图标栏入口保持可用。
+
+原生设置导航名称为“用量监控”。原生页与侧栏对话框共用“概览／供应商／设置”内容及展示控制器；原生页不创建额外模态框，也不限制宿主 Tab 与 Esc。原生页挂载时接管插件对话框及其草稿、在途保存锁。宿主直接卸载原生设置分区不提供可取消导航接口，插件只能清理草稿；插件自己的返回、取消和关闭提供未保存确认。
+
+概览保留多窗口与多币种，错误旧数据使用中性色并附失败标记。今日用量是当前供应商的今日 Token 用量，按宿主本地日统计。全局轮询与保留期显式保存，侧栏偏好仅存于当前浏览器。
+
+本轮 UI01–UI06 的自动测试及最终候选包验收结果单独记录在[实施方案结果表](sidebar-settings-iteration-plan.md)，不将下文旧版界面证据计作本轮通过。
+
 ## 验证方法
 
 `scripts/verify-desktop.mjs` 启动真实 Windows 安装版，创建独立的 `DSH_HOME`、`desktop` profile 与 Chromium 用户目录。隔离 profile 显式配置 `host: 127.0.0.1`、`port: 0`，可与日常桌面应用并存。安装可以使用源码链接或 `npm pack` 产物；报告中区分二者，并记录安装包 SHA-256。
 
-每轮输出目录独立，包含 `report.json` 和截图。脚本不配置真实供应商密钥，不发送聊天消息。真实安装版验收与模拟供应商测试分别记录。
+每轮输出目录独立，包含 `report.json` 和截图。脚本清除继承的密钥环境变量，不配置真实供应商密钥，也不发送聊天消息。只保存轮询间隔、禁用供应商的警告阈值等非秘密字段，并验证持久化和重新读取。真实安装版验收与模拟供应商测试分别记录。
+
+`scripts/verify-web.mjs` 使用同一安装版自带 CLI 启动独立真实 DSH Web 宿主，以 Chromium 访问 HTTP 页面。它使用独立 `web` profile、数据目录和浏览器上下文；浏览器测试壳不参与此验证。
 
 ```powershell
 npm test
 npm run test:browser
 npm run test:pack
-npm run test:desktop -- --app 'D:\AI\DeepSeek- Harness\DeepSeek Harness.exe' --package 'D:\path\dsh-token-quota-1.4.0.tgz' --output '.scratch\desktop-package-check'
+npm run test:desktop -- --app 'D:\AI\DeepSeek- Harness\DeepSeek Harness.exe' --package 'D:\path\dsh-token-quota-2.0.0.tgz' --output '.scratch\desktop-package-check'
+node scripts/verify-web.mjs --app 'D:\AI\DeepSeek- Harness\DeepSeek Harness.exe' --package 'D:\path\dsh-token-quota-2.0.0.tgz' --output '.scratch\web-package-check'
 ```
 
-## 验证结果
+## 界面迭代前的兼容性验证结果（历史）
 
 | 验证层 | 结果 | 范围 |
 |---|---|---|

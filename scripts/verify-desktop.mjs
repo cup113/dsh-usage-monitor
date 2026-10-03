@@ -34,17 +34,19 @@ await writeFile(join(profile, "cordis.patch.yml"), [
   "- id: ui-settings-account", "  config:", "    version: 1", "    step: done",
   "    completion: skipped", "    developerTools: true", "",
 ].join("\n"));
-const env = { ...process.env, DSH_HOME: home };
+const env = { ...process.env, DSH_HOME: home, DSH_AGENTS_HOME: join(output, "agents"), DSH_TELEMETRY_DISABLED: "1" };
+// 隔离 profile 不能通过进程环境继承真实供应商凭据。
+for (const key of Object.keys(env)) if (/API_?KEY|TOKEN|SECRET|PASSWORD/i.test(key)) delete env[key];
 delete env.ELECTRON_RUN_AS_NODE;
 const cli = join(dirname(executable), "resources", "app.asar", "dsh", "node_modules", "@deepseek-ai", "dsh-desktop-host", "lib", "cli.js");
 const install = spawnSync(executable, ["--expose-internals", cli, "plugin", "--profile", "desktop", "add", spec], {
-  env: { ...env, ELECTRON_RUN_AS_NODE: "1" }, encoding: "utf8", timeout: 120_000,
+  env: { ...env, ELECTRON_RUN_AS_NODE: "1" }, cwd: output, windowsHide: true, encoding: "utf8", timeout: 120_000,
 });
 assert.equal(install.status, 0, install.stderr || "桌面 profile 安装失败");
 
-const report = { startedAt: new Date().toISOString(), status: "running", checks: [], source: packageFile ? "npm-package" : "source-link" };
+const report = { startedAt: new Date().toISOString(), status: "running", checks: [], source: packageFile ? "npm-package" : "source-link", supplierQueries: "notRun", supplierQueriesReason: "隔离环境未配置真实供应商凭据，未发送聊天或付费查询。" };
 if (packageFile) report.packageSha256 = createHash("sha256").update(await readFile(packageFile)).digest("hex");
-const app = await electron.launch({ executablePath: executable, args: [`--user-data-dir=${join(output, "chromium")}`], env, timeout: 30_000 });
+const app = await electron.launch({ executablePath: executable, args: [`--user-data-dir=${join(output, "chromium")}`], cwd: output, env, timeout: 30_000 });
 let page;
 try {
   report.runtime = await app.evaluate(({ app }) => ({ version: app.getVersion(), electron: process.versions.electron, node: process.versions.node }));
@@ -64,19 +66,28 @@ try {
   await page.screenshot({ path: join(output, "widget.png"),
     mask: [page.getByRole("button", { name: /^(账号菜单|Account menu)$/ })], maskColor: "#f7f8fa" });
 
-  await page.locator(".qm-strip").click();
-  await page.locator(".qm-pop").getByRole("button", { name: /^(详情|Details)$/ }).click();
-  const detail = page.getByRole("dialog", { name: /供应商限额明细|Supplier quota details/ });
+  await expect(page.locator("[data-qm-density]")).toHaveAttribute("data-qm-density", "expanded");
+  await page.locator("[data-qm-density]").getByRole("button", { name: /^(收起|Collapse)$/ }).click();
+  await expect(page.locator("[data-qm-density]")).toHaveAttribute("data-qm-density", "compact");
+  await page.reload();
+  await expect(page.locator("[data-qm-density]")).toHaveAttribute("data-qm-density", "compact", { timeout: 30_000 });
+  await page.locator("[data-qm-density]").getByRole("button", { name: /^(展开|Expand)$/ }).click();
+  await expect(page.locator("[data-qm-density]")).toHaveAttribute("data-qm-density", "expanded");
+  report.checks.push("sidebar-density-persisted");
+
+  await page.locator("[data-qm-entry]").click();
+  const detail = page.getByRole("dialog", { name: /^(用量监控|Usage monitor)$/ });
   await expect(detail).toBeVisible();
+  await expect(detail.getByRole("tab", { name: /^(概览|Overview)$/ })).toHaveAttribute("aria-selected", "true");
   await page.screenshot({ path: join(output, "details.png") });
   await page.keyboard.press("Escape");
   await expect(detail).toHaveCount(0);
   await expect(page.locator(".qm-strip")).toBeFocused();
-  report.checks.push("details-and-focus-return");
+  report.checks.push("direct-overview-and-focus-return");
 
-  await page.locator(".qm-strip").click();
-  await page.locator(".qm-pop").getByRole("button", { name: /^(设置|Settings)$/ }).click();
+  await page.locator("[data-qm-entry]").click();
   const settings = page.locator(".qm-settings");
+  await settings.getByRole("tab", { name: /^(设置|Settings)$/ }).click();
   await expect(settings.locator('input[max="3600"]')).toBeVisible();
   await settings.locator('input[max="3600"]').fill("75");
   await settings.getByRole("button", { name: /^(保存|Save)$/ }).click();
@@ -85,18 +96,34 @@ try {
   assert.match(await readFile(join(profile, "cordis.patch.yml"), "utf8"), /intervalSeconds: 75/);
   report.checks.push("settings-persist-through-desktop-transport");
 
+  await settings.getByRole("tab", { name: /^(供应商|Suppliers)$/ }).click();
   const rescan = page.waitForResponse(response => response.url().includes("/api/dsh-token-quota/rescan"));
   await settings.locator(".qm-rescan-btn").click();
   const scanned = await (await rescan).json();
   assert.equal(scanned.ok, true);
   assert.equal(scanned.detect.error, null);
   report.checks.push("optional-services-and-rescan");
+  await settings.locator(".qm-addable summary").click();
+  await settings.locator(".qm-add-row").filter({ has: page.locator(".qm-page-name", { hasText: /^DeepSeek$/ }) }).getByRole("button").click();
+  await expect(settings.locator(".qm-advanced")).not.toHaveAttribute("open", "");
+  await expect(settings.locator(".qm-quota-preview")).toBeVisible();
+  await settings.locator(".qm-inline-toggle input").uncheck();
+  await settings.locator(".qm-advanced summary").click();
+  await settings.locator('input[max="99"]').fill("76");
+  await settings.getByRole("button", { name: /^(保存|Save)$/ }).click();
+  await expect(settings.locator(".s-saved")).toBeVisible();
+  assert.equal((await state()).suppliers.find(s => s.id === "deepseek").warnPct, 76);
+  assert.match(await readFile(join(profile, "cordis.patch.yml"), "utf8"), /warnPct: 76/);
+  report.checks.push("supplier-editor-nonsecret-save");
   await page.screenshot({ path: join(output, "settings.png") });
   await page.keyboard.press("Escape");
 
   await page.getByRole("button", { name: /^(账号菜单|Account menu)$/ }).click();
   await page.getByRole("menuitem", { name: /设置|Settings/ }).click();
-  await page.getByRole("button", { name: /^(用量监控设置|Quota monitor settings)$/ }).click();
+  await page.getByRole("button", { name: /^(用量监控|Usage monitor)$/ }).click();
+  await expect(page.locator(".qm-settings-page")).toBeVisible();
+  await expect(page.locator(".qm-settings-page")).not.toHaveAttribute("role", "dialog");
+  await page.locator(".qm-settings-page").getByRole("tab", { name: /^(设置|Settings)$/ }).click();
   await expect(page.locator('.qm-settings input[max="3600"]')).toHaveValue("75");
   await page.screenshot({ path: join(output, "settings-section.png") });
   report.checks.push("native-settings-section");
@@ -110,8 +137,8 @@ try {
   await page.screenshot({ path: join(output, "collapsed.png") });
   await page.getByRole("button", { name: /^(打开侧边栏|Open sidebar)$/ }).click();
   await expect(page.locator(".qm-strip")).toBeVisible();
-  await page.locator(".qm-strip").click();
-  await page.locator(".qm-pop").getByRole("button", { name: /^(详情|Details)$/ }).click();
+  await expect(page.locator("[data-qm-density]")).toHaveAttribute("data-qm-density", "expanded");
+  await page.locator("[data-qm-entry]").click();
   await expect(detail).toBeVisible();
   const box = await detail.boundingBox();
   const viewport = await page.evaluate(() => ({ width: innerWidth, height: innerHeight }));

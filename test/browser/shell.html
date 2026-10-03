@@ -1,22 +1,32 @@
 <!doctype html>
 <html lang="zh-CN">
 <meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">
-<title>用量监控</title>
-<style>body{margin:0;background:#15191f;color:#e6edf3;font:14px system-ui}button,input{font:inherit}aside{position:fixed;bottom:24px;left:16px;width:240px}main{padding:24px}</style>
-<main><h1>用量监控</h1><div id="settings"></div><button id="background">返回会话</button></main><aside id="footer"></aside>
+<title>用量监控浏览器验收</title>
+<style>
+body{margin:0;background:#15191f;color:#e6edf3;font:14px system-ui}button,input{font:inherit}
+aside{position:fixed;bottom:24px;left:16px;width:240px}main{padding:24px 24px 140px;max-width:1100px;margin:auto}
+body.light{background:#fff;color:#202630;--dsw-alias-bg-base:#fff;--dsw-alias-bg-layer-2:#f2f4f7;--dsw-alias-label-primary:#202630;--dsw-alias-label-secondary:#4b5563;--dsw-alias-label-tertiary:#647084;--dsw-alias-border-l1:#d5d9df;--dsw-alias-border-l2:#e0e4e9;--dsw-alias-interactive-bg-hover:#e4eaf2;--dsw-specific-input-major:#fff;--dsw-alias-state-success-primary:#087948;--dsw-alias-state-warn-primary:#975a00;--dsw-alias-state-error-primary:#bf2330;--dsw-alias-state-business-primary:#175cd3}
+</style>
+<main><h1>宿主设置</h1><button id="show-settings">打开原生设置</button><div id="settings"></div><button id="background">返回会话</button></main><aside id="footer"></aside>
 <script src="/react.js"></script><script src="/react-dom.js"></script>
 <script>
 let dictionary = {}, slots = {};
+const params = new URLSearchParams(location.search);
 const t = (key, values = {}) => String(dictionary[key] || key).replace(/\{(\w+)\}/g, (_, k) => values[k] ?? `{${k}}`);
+if (params.has('light')) document.body.classList.add('light');
+document.getElementById('footer').style.width = `${Number(params.get('width')) || 240}px`;
 window.__ModuleLoader__ = { load({factory}) {
  const plugin = factory(id => id === 'react' ? React : ReactDOM);
  plugin.apply({locale:{register(ns,locales){dictionary=locales.zh;}},effect(){},slots:{
    inject(name,fn){fn();},register({name},component){slots[name]=component;return ()=>{};}
  }});
- // 0.1.7 契约：设置页是 settings.section 列表项，外壳把它渲染在设置面板内容列（不是弹层），
- // close 由外壳提供 —— 这里用「清空容器」模拟外壳关闭设置面板。
+ // 按公开槽位契约挂载页面；无 ?settings 时仅挂侧栏，用于区分页面和对话框入口。
  const settingsRoot = ReactDOM.createRoot(document.getElementById('settings'));
- settingsRoot.render(React.createElement(slots['settings.section'], { t, close: () => settingsRoot.render(null) }));
+ const unmountSettings = () => settingsRoot.render(null);
+ const mountSettings = () => settingsRoot.render(React.createElement(slots['settings.section'], { t, close: unmountSettings }));
+ document.getElementById('show-settings').onclick = mountSettings;
+ window.__qmHost = { mountSettings, unmountSettings, setWidth(width) { document.getElementById('footer').style.width = `${width}px`; } };
+ if (params.has('settings')) mountSettings();
  ReactDOM.createRoot(document.getElementById('footer')).render(React.createElement(slots['sidebar.footer.action'],{t,wide:!location.search.includes('rail')}));
 }};
 </script><script src="/client.js"></script>

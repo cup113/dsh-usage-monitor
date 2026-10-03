@@ -1,7 +1,7 @@
-// test/client-lifecycle.mjs — A1 客户端请求生命周期回归
+// test/client-lifecycle.mjs — A4 客户端请求生命周期回归
 // 用法：node --test test/client-lifecycle.mjs
 //
-// 覆盖技术方案 A1 的验收项（全部通过组件渲染 + 真实 AbortController 验证，不只看函数返回值）：
+// 覆盖请求生命周期与共享订阅（组件渲染 + 真实 AbortController，供应商请求使用可控替身）：
 //   1) 每次 GET 延迟 15s、连续三轮：三个有效结果都能发布，最大后台 GET 并发为 1；
 //   2) GET 永不结束：30s 触发取消并按退避恢复，不积累悬挂请求；
 //   3) A/B 切页后 A 的迟到响应不得进入 B 的显示或覆盖 B 缓存；
@@ -23,6 +23,7 @@ const BACKOFF_MS = [10_000, 20_000, 40_000, 60_000];
 
 /** 挂载客户端插件；fetch 由用例给出，计时器走手动桩，页面可见性可切换。 */
 function client(fetch) {
+  const cleanups = [];
   const timers = [];
   const timeouts = []; // 每个 GET 的 30s 初始等待上限，按发起顺序
   const listeners = {};
@@ -78,12 +79,15 @@ function client(fetch) {
       subscribe(fn) { sessionListeners.add(fn); return () => sessionListeners.delete(fn); },
     },
   };
-  plugin.apply({ locale: { register() {} }, effect() {}, get: (name) => (name === "sessions" ? sessions : undefined), slots: {
+  plugin.apply({ locale: { register() {} }, effect(fn) { cleanups.push(fn()); }, get: (name) => (name === "sessions" ? sessions : undefined), slots: {
     inject(name, fn) { fn(); },
     register(descriptor, component) { slots[descriptor.name ?? descriptor.key] = component; },
   } });
   return {
     Component: slots["sidebar.footer.action"],
+    Page: slots["settings.section"],
+    dispose() { for (const cleanup of cleanups) cleanup?.(); },
+    sessionListenerCount: () => sessionListeners.size,
     timers,
     timeouts,
     /** 仍在排定中的计时器（已触发的会被移出）。 */
@@ -125,13 +129,14 @@ function client(fetch) {
 }
 
 /** 可手动结算的 fetch：记录 URL / 方法 / signal，并支持断言「请求已被 abort」。 */
-function fakeFetch() {
+function fakeFetch({ ignoreAbort = false } = {}) {
   const calls = [];
   const pending = [];
   const fetch = (url, options = {}) => new Promise((resolve, reject) => {
     const call = { url: String(url), method: options.method || "GET", aborted: false, resolve, reject };
     options.signal?.addEventListener?.("abort", () => {
       call.aborted = true;
+      if (ignoreAbort) return; // 模拟不可取消的传输，迟到响应仍将真正抵达客户端。
       // 浏览器 fetch 以 signal.reason 拒绝：超时是 TimeoutError、切页取消是 AbortError
       const reason = options.signal.reason;
       if (reason && typeof reason === "object") reject(reason);
@@ -161,15 +166,13 @@ const line2 = (tree) => {
   const nodes = tree.root.findAllByProps({ className: "qm-l2" });
   return nodes.length ? textOf(nodes[0]) : "";
 };
-/** 打开紧凑条弹层 → 进入详情弹层 → 返回其中的刷新按钮。 */
+/** 点击侧栏直接打开共用面板，返回其中的刷新按钮。 */
 const openDetail = (tree) => {
   const entry = tree.root.findAllByProps({ "data-qm-entry": "" })[0];
   act(() => { entry.props.onClick(); });
-  const detailButton = tree.root.findAllByType("button").find((b) => textOf(b).includes("detail"));
-  assert.ok(detailButton, "Popover 应有详情入口");
-  act(() => { detailButton.props.onClick(); });
+  assert.equal(tree.root.findAllByProps({ role: "dialog" }).length, 1, "侧栏直接打开监控对话框");
   const refreshButton = tree.root.findAllByType("button").find((b) => textOf(b).includes("refresh"));
-  assert.ok(refreshButton, "详情弹层应有刷新按钮");
+  assert.ok(refreshButton, "共用面板应有刷新按钮");
   return refreshButton;
 };
 /**
@@ -281,7 +284,7 @@ test("a page hidden at mount does not fetch until it becomes visible", async () 
 });
 
 for (const generation of ["legacy", "desktop"]) test(`${generation}: a late response from page A never enters page B display or cache`, async () => {
-  const net = fakeFetch();
+  const net = fakeFetch({ ignoreAbort: generation === "legacy" });
   const harness = client(net.fetch);
   const { Component } = harness;
   const setSession = generation === "legacy" ? harness.setSession : (id) => harness.setSnapshot({
@@ -451,4 +454,61 @@ test("duplicate refresh clicks merge into one POST and keep one background GET a
     await act(async () => { net.ok(net.lastGet(), stateFor("after-refresh")); });
     assert.ok(line2(tree).includes("after-refresh"));
   } finally { await act(async () => { tree?.unmount(); }); }
+});
+
+test("sidebar and native settings share one session subscription and polling loop", async () => {
+  const net = fakeFetch();
+  const host = client(net.fetch);
+  let footer;
+  let page;
+  try {
+    await act(async () => { host.setSession("shared"); });
+    footer = await mount(host.Component, {});
+    page = await mount(host.Page, { close() {} });
+    assert.equal(net.gets().length, 1, "第二个可见视图不得发出重复初始 GET");
+    assert.equal(host.sessionListenerCount(), 1, "全部视图共享一个当前会话订阅");
+    assert.equal(host.documentListeners.visibilitychange.length, 1, "全部视图共享一个可见性监听");
+    await act(async () => { net.ok(net.lastGet(), stateFor("shared-data")); });
+    assert.ok(line2(footer).includes("shared-data"));
+    assert.equal(host.pending().filter((timer) => timer.ms === POLL_MS).length, 1);
+    await act(async () => { footer.unmount(); });
+    footer = null;
+    assert.equal(host.pending().filter((timer) => timer.ms === POLL_MS).length, 1, "移除一个视图仍继续为另一个视图刷新");
+    assert.equal(host.sessionListenerCount(), 1);
+    await act(async () => { host.setVisibility("hidden"); });
+    const before = net.gets().length;
+    assert.equal(host.pendingPolls().length, 0, "隐藏时两个视图共用的轮询暂停");
+    await act(async () => { host.setVisibility("visible"); });
+    assert.equal(net.gets().length, before + 1, "多个视图恢复可见只启动一次查询");
+    const inflight = net.lastGet();
+    await act(async () => { page.unmount(); });
+    page = null;
+    await flushPending();
+    assert.equal(inflight.aborted, true, "最后一个视图离开取消请求");
+    assert.equal(host.pending().length, 0, "最后一个视图离开清空所有定时器");
+    assert.equal(host.sessionListenerCount(), 0, "最后一个视图离开取消会话订阅");
+    assert.equal(host.documentListeners.visibilitychange.length, 0);
+  } finally { await act(async () => { footer?.unmount(); page?.unmount(); }); }
+});
+
+test("plugin disposal stops shared polling even before mounted views are removed", async () => {
+  const net = fakeFetch();
+  const host = client(net.fetch);
+  let footer;
+  let page;
+  try {
+    footer = await mount(host.Component, {});
+    page = await mount(host.Page, { close() {} });
+    const inflight = net.lastGet();
+    await act(async () => { host.dispose(); });
+    await flushPending();
+    assert.equal(inflight.aborted, true);
+    assert.equal(host.pending().length, 0);
+    assert.equal(host.sessionListenerCount(), 0);
+    assert.equal(host.documentListeners.visibilitychange.length, 0);
+    await act(async () => { net.ok(inflight, stateFor("disposed-result")); });
+    assert.ok(!line2(footer).includes("disposed-result"), "插件卸载后的迟到响应不得发布");
+    await act(async () => { host.setVisibility("visible"); host.setSession("later"); });
+    assert.equal(net.gets().length, 1);
+  } finally { await act(async () => { footer?.unmount(); page?.unmount(); }); }
 });
