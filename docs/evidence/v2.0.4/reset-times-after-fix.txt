@@ -1,0 +1,28 @@
+✔ expanded sidebar opens a usage popover before independent details (15.3047ms)
+✔ rail sidebar opens a usage popover before independent details (2.0949ms)
+✔ late state responses cannot overwrite a newer poll (2.2407ms)
+✔ expanded sidebar prioritizes the selected window and scopes today's total to current suppliers (1.7562ms)
+✔ a page with no calls never borrows another page's supplier but retains scoped daily tokens (1.6836ms)
+✔ sidebar density is a versioned local preference; obsolete layout queries have no effect (3.4375ms)
+✔ A1 pure display table separates percentages, balances, report periods, zero and unknown (0.9509ms)
+✔ selected primary window owns its reset time and unknown reset does not borrow headline (0.7721ms)
+✔ connection observation ignores disabled failures and distinguishes unconfigured and degraded states (0.6114ms)
+✔ overview and supplier preview share threshold classification default/default (6.4939ms)
+✔ overview and supplier preview share threshold classification 50/70 (4.0887ms)
+✔ unknown percentage and healthy balance remain neutral; failed old values show their last success time (11.8441ms)
+[dsh-token-quota] supplier settings save failed Error: validation rejected
+    at post (evalmachine.<anonymous>:271:68)
+    at async Object.saveSupplier [as onClick] (evalmachine.<anonymous>:768:13)
+✔ embedded settings preserves non-secret fields and retains rejected drafts (4.5559ms)
+✔ Command Code zero reset placeholders never display January 1 (13.4262ms)
+✔ missing and invalid reset dates have no formatted calendar fallback (0.9291ms)
+✔ seconds passed to millisecond reset fields cannot become 1970 dates (0.109ms)
+✔ millisecond and ISO reset timestamps remain exact including timezone offsets (1.2104ms)
+ℹ tests 17
+ℹ suites 0
+ℹ pass 17
+ℹ fail 0
+ℹ cancelled 0
+ℹ skipped 0
+ℹ todo 0
+ℹ duration_ms 150.2437

@@ -2,9 +2,15 @@
 
 DeepSeek Harness 用量监控插件。查看当前会话对应供应商的周期限额、账户余额、报告费用和今日 Token 用量，支持 Windows 桌面端与 Web 界面。
 
-当前版本：**v2.0.3**。要求 **DSH ≥ 0.1.7-rc.2**；真实桌面及 Web 验收环境为 **DSH 0.2.0-rc.2**。
+当前版本：**v2.0.4**。要求 **DSH ≥ 0.1.7-rc.2**；真实桌面及 Web 验收环境为 **DSH 0.2.0-rc.2**。
 
 [GitHub 下载](https://github.com/shxtmaker/dsh-token-quota/releases/latest) · [问题反馈](https://github.com/shxtmaker/dsh-token-quota/issues)
+
+## v2.0.4 更新
+
+- 修复 Command Code 等供应商未公布重置时刻时错误显示“1月1日”的问题。
+- 统一验证日期文案与原始时刻，零值、无效日期和误传入毫秒字段的秒级值显示为未知，不推算重置时间。
+- 保留有效毫秒、数字串和带时区日期的准确时刻，OpenCode Go 的正常窗口倒计时保持不变。
 
 ## v2.0.3 更新
 
@@ -34,7 +40,7 @@ DeepSeek Harness 用量监控插件。查看当前会话对应供应商的周期
 
 ## 安装
 
-从 Release 下载 **`dsh-token-quota-2.0.3.tgz`**。该文件是插件安装包，`dsh-token-quota-2.0.3-source.tar.gz` 是源码包。插件包不包含 DeepSeek Harness；首次安装可能需要联网下载依赖。
+从 Release 下载 **`dsh-token-quota-2.0.4.tgz`**。该文件是插件安装包，`dsh-token-quota-2.0.4-source.tar.gz` 是源码包。插件包不包含 DeepSeek Harness；首次安装可能需要联网下载依赖。
 
 ### Windows 桌面端
 
@@ -42,7 +48,7 @@ DeepSeek Harness 用量监控插件。查看当前会话对应供应商的周期
 
 ```powershell
 $desktopCli = 'D:\AI\DeepSeek- Harness\resources\runtime\cli\bin\dsh.cmd'
-$archivePath = (Resolve-Path './dsh-token-quota-2.0.3.tgz').Path
+$archivePath = (Resolve-Path './dsh-token-quota-2.0.4.tgz').Path
 & $desktopCli plugin --profile desktop add "file:$archivePath"
 & $desktopCli plugin --profile desktop list --depth 0
 ```
@@ -56,19 +62,19 @@ $archivePath = (Resolve-Path './dsh-token-quota-2.0.3.tgz').Path
 Linux / macOS：
 
 ```bash
-dsh plugin --profile web add "file:$(pwd)/dsh-token-quota-2.0.3.tgz"
+dsh plugin --profile web add "file:$(pwd)/dsh-token-quota-2.0.4.tgz"
 dsh --profile web
 ```
 
 Windows PowerShell：
 
 ```powershell
-$archivePath = (Resolve-Path './dsh-token-quota-2.0.3.tgz').Path
+$archivePath = (Resolve-Path './dsh-token-quota-2.0.4.tgz').Path
 dsh plugin --profile web add "file:$archivePath"
 dsh --profile web
 ```
 
-若旧版本已提示重复路由，先完全退出 DSH，再安装 v2.0.3 并重新启动，以清除当前进程中遗留的旧路由。
+若旧版本已提示重复路由，先完全退出 DSH，再安装 v2.0.4 并重新启动，以清除当前进程中遗留的旧路由。
 
 安装或升级前，请先结束当前任务并退出对应 DSH 实例。压缩包升级时，用新包重新执行 `add` 命令，然后重启 DSH 并刷新 Web 页面。
 
@@ -180,8 +186,8 @@ npm pack
 真实宿主验收使用独立数据目录与 profile，不修改日常配置：
 
 ```powershell
-npm run test:desktop -- --app 'C:/path/DeepSeek Harness.exe' --package 'C:/path/dsh-token-quota-2.0.3.tgz' --output '.scratch/desktop-v2-check'
-node scripts/verify-web.mjs --app 'C:/path/DeepSeek Harness.exe' --package 'C:/path/dsh-token-quota-2.0.3.tgz' --output '.scratch/web-v2-check'
+npm run test:desktop -- --app 'C:/path/DeepSeek Harness.exe' --package 'C:/path/dsh-token-quota-2.0.4.tgz' --output '.scratch/desktop-v2-check'
+node scripts/verify-web.mjs --app 'C:/path/DeepSeek Harness.exe' --package 'C:/path/dsh-token-quota-2.0.4.tgz' --output '.scratch/web-v2-check'
 npm run test:lifecycle -- --app 'C:/path/DeepSeek Harness.exe' --output '.scratch/lifecycle-v2-check'
 ```
 

@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "packageSha256": "209b7d85dc9cbabd428051a01b8ba437bab36fe3c22d1c6a34af2af00a45a953",
+  "unit": {
+    "passed": 81,
+    "failed": 0,
+    "skipped": 0
+  },
+  "browser": {
+    "passed": 25,
+    "failed": 0
+  },
+  "checks": {
+    "sourceUnit": {
+      "status": "passed",
+      "log": ".scratch\\reset-fix-unit.log",
+      "logSha256": "dbbefff196fb446b0de931ba4e049d469c557f47a2d31debd688bded9b68708b"
+    },
+    "sourceBrowser": {
+      "status": "passed",
+      "log": ".scratch\\reset-fix-browser.log",
+      "logSha256": "51c4bac83f932e4696455f7df9c23c9c3b8bdee7db2ba0dbe017e0aa645c7b9e"
+    },
+    "packageUnit": {
+      "status": "passed",
+      "log": ".scratch\\reset-fix-v2.0.4\\package-unit.log",
+      "logSha256": "57bcdd0019b53267638bd2d3567cefdd4d108a82732a70a0054e0e9e83c908e7"
+    },
+    "packageBrowser": {
+      "status": "passed",
+      "log": ".scratch\\reset-fix-v2.0.4\\package-browser.log",
+      "logSha256": "487b777b63bc86721fb3eac207eacc5e03b668af0a672b8490cd211a8d728082"
+    }
+  }
+}

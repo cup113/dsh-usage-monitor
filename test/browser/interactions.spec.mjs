@@ -1,4 +1,5 @@
 import { test, expect } from "@playwright/test";
+import { PROVIDERS } from "../../lib/providers.js";
 import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 
@@ -22,6 +23,46 @@ const displayFixture = () => ({
   ],
 });
 const useDisplayFixture = (page) => page.route(/\/api\/dsh-token-quota\/state(?:\?.*)?$/, (route) => route.fulfill({ json: displayFixture() }));
+
+test("real provider parsing keeps unknown Command Code resets empty and valid OpenCode countdowns", async ({ page }) => {
+  const resetAt = Date.now() + 5 * 3600_000;
+  const previousFetch = globalThis.fetch;
+  let command, opencode;
+  try {
+    globalThis.fetch = async (url) => {
+      const path = new URL(url).pathname;
+      const body = path.endsWith("/whoami") ? { org: { id: "fixture-org" } }
+        : path.endsWith("/credits") ? {
+          credits: { planId: "goat", monthlyCredits: 70 },
+          windowLimits: { fiveHour: { used: 0, cap: 14, resetAt: 0 }, weekly: { used: 0, cap: 35, resetAt: "0" } },
+        } : path.endsWith("/subscriptions") ? { data: { currentPeriodEnd: new Date(resetAt).toISOString() } }
+          : { usage: { rolling: { percent: 52, resetsAt: new Date(resetAt).toISOString() } } };
+      return { ok: true, text: async () => JSON.stringify(body) };
+    };
+    const cfg = { apiKey: "fixture", warnPct: 80, critPct: 95 };
+    command = await PROVIDERS.commandcode.query(cfg);
+    opencode = await PROVIDERS.opencode.query(cfg);
+  } finally { globalThis.fetch = previousFetch; }
+  const fixture = displayFixture();
+  fixture.suppliers = [
+    { id: "commandcode", name: "Command Code", added: true, enabled: true, ...command },
+    { id: "opencode", name: "OpenCode", added: true, enabled: true, ...opencode },
+  ];
+  await page.route(/\/api\/dsh-token-quota\/state(?:\?.*)?$/, route => route.fulfill({ json: fixture }));
+  await page.goto("/");
+  await page.locator("[data-qm-entry]").click();
+  await page.locator(".qm-pop").getByRole("button", { name: "详情", exact: true }).click();
+  const detail = page.getByRole("dialog", { name: "供应商限额明细", exact: true });
+  const entries = detail.locator(".qm-col").filter({ hasText: "Command Code" }).locator(".qm-card-item");
+  await expect(entries).toHaveCount(3);
+  await expect(entries.nth(0).locator(".ci-name span").last()).toHaveText("—");
+  await expect(entries.nth(1).locator(".ci-name span").last()).toHaveText("—");
+  await expect(entries.nth(0)).toContainText("未提供重置时刻");
+  await expect(entries.nth(2).locator(".ci-name span").last()).toContainText(/4h59m|5h00m/);
+  await expect(detail.locator(".qm-col").filter({ hasText: "OpenCode" })).toContainText(/4h59m|5h00m/);
+  await expect(detail).not.toContainText("1月1日");
+  await expect(detail).not.toContainText("NaN");
+});
 test("restored details show supplier columns and a bounded history table before settings", async ({ page }) => {
   const fixture = displayFixture();
   fixture.suppliers.push({ id: "commandcode", name: "Command Code", added: true, enabled: true, state: "ok",
