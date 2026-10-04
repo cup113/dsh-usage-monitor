@@ -4,7 +4,7 @@ DeepSeek Harness 用量监控插件。查看当前会话对应供应商的周期
 
 当前版本：**v2.0.0**。要求 **DSH ≥ 0.1.7-rc.2**；真实桌面及 Web 验收环境为 **DSH 0.2.0-rc.2**。
 
-[GitHub 下载](https://github.com/shxtmaker/dsh-token-quota/releases/latest) · [Gitea 下载（内网）](http://192.168.3.100:3300/lqy/dsh-token-quota/releases) · [问题反馈](https://github.com/shxtmaker/dsh-token-quota/issues)
+[GitHub 下载](https://github.com/shxtmaker/dsh-token-quota/releases/latest) · [问题反馈](https://github.com/shxtmaker/dsh-token-quota/issues)
 
 ## v2.0.0 更新
 
