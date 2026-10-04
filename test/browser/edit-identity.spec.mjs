@@ -136,11 +136,11 @@ test("自定义阈值在详情卡与设置页预览使用同一判定", async ({
   // 状态药丸与预览同口径（最高 80 ≥ crit 70 → 临界）
   await expect(dialog.locator(".qm-page-head .qm-pill")).toHaveText("临界");
 
-  // 侧栏复用已挂载页面并切换概览，概览与预览共用同一份阈值判定。
+  // 独立详情弹窗与设置页预览共用同一份阈值判定。
   await page.locator("[data-qm-entry]").click();
-  const detail = dialog.locator('.qm-supplier-card[data-supplier="opencode"]');
+  const detail = page.getByRole("dialog", { name: "供应商限额明细", exact: true }).locator('.qm-col[data-supplier="opencode"]');
   await expect(detail).toBeVisible();
-  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await expect(page.getByRole("dialog")).toHaveCount(1);
   const detailTones = await detail.locator(".qm-card-item .ci-big").evaluateAll((nodes) => nodes.map((n) => n.className));
   expect(detailTones).toContain("ci-big ok");   // 49 < 50
   expect(detailTones).toContain("ci-big warn"); // 50 ≤ 60 < 70
@@ -224,6 +224,7 @@ test("全局保存的迟到回调不得解锁供应商保存；供应商完成�
 for (const rejected of [false, true]) test(`保存${rejected ? "失败" : "成功"}时原生页接管保留保存锁与草稿身份`, async ({ page, request }) => {
   await page.goto("/");
   await page.locator("[data-qm-entry]").click();
+  await page.getByRole("dialog", { name: "供应商限额明细", exact: true }).getByRole("button", { name: "设置", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "用量监控", exact: true });
   await openSupplier(page, dialog, "OpenCode");
   await dialog.getByLabel("org id（可选）", { exact: true }).fill("native-takeover-draft");
@@ -260,6 +261,7 @@ test("关闭在途保存后重开等候服务端实际状态，不复用旧缓�
   await page.goto("/");
   const opener = page.locator("[data-qm-entry]");
   await opener.click();
+  await page.getByRole("dialog", { name: "供应商限额明细", exact: true }).getByRole("button", { name: "设置", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "用量监控", exact: true });
   await openSupplier(page, dialog, "OpenCode");
   await dialog.getByLabel("org id（可选）", { exact: true }).fill("saved-after-close");
@@ -270,6 +272,7 @@ test("关闭在途保存后重开等候服务端实际状态，不复用旧缓�
   await dialog.getByRole("alertdialog").getByRole("button", { name: "放弃修改", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await opener.click();
+  await page.getByRole("dialog", { name: "供应商限额明细", exact: true }).getByRole("button", { name: "设置", exact: true }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.getByLabel("org id（可选）", { exact: true })).toHaveCount(0);
   await expect(dialog.locator(".qm-supplier-card")).toHaveCount(0);
@@ -284,6 +287,7 @@ test("全局保存后关闭重开并原生接管时只初始化最新设置", as
   await page.goto("/");
   const opener = page.locator("[data-qm-entry]");
   await opener.click();
+  await page.getByRole("dialog", { name: "供应商限额明细", exact: true }).getByRole("button", { name: "设置", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "用量监控", exact: true });
   await dialog.getByRole("tab", { name: "设置", exact: true }).click();
   const interval = dialog.locator('input[type="number"][min="10"]');
@@ -296,6 +300,7 @@ test("全局保存后关闭重开并原生接管时只初始化最新设置", as
   await dialog.getByRole("alertdialog").getByRole("button", { name: "放弃修改", exact: true }).click();
   await expect(dialog).toHaveCount(0);
   await opener.click();
+  await page.getByRole("dialog", { name: "供应商限额明细", exact: true }).getByRole("button", { name: "设置", exact: true }).click();
   await expect(dialog).toBeVisible();
   await expect(dialog.locator(".qm-supplier-card")).toHaveCount(0);
   await page.evaluate(() => window.__qmHost.mountSettings());
@@ -304,6 +309,7 @@ test("全局保存后关闭重开并原生接管时只初始化最新设置", as
   await expect(page.getByRole("dialog")).toHaveCount(0);
   // 等待中的再次侧栏点击不能提前解除 opening，也不能从旧缓存初始化 globalForm。
   await opener.click();
+  await page.getByRole("dialog", { name: "供应商限额明细", exact: true }).getByRole("button", { name: "设置", exact: true }).click();
   await expect(panel.locator(".qm-supplier-card")).toHaveCount(0);
   await panel.getByRole("tab", { name: "设置", exact: true }).click();
   await expect(panel.locator('input[type="number"][min="10"]')).toHaveCount(0);

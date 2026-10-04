@@ -57,7 +57,8 @@ for (const wide of [true, false]) test(`${wide ? "expanded" : "rail"} sidebar di
     tree = await mount(host, { wide });
     await open(tree);
     assert.equal(tree.root.findAllByProps({ role: "dialog" }).length, 1);
-    assert.equal(tab(tree, "概览").props["aria-selected"], true);
+    assert.equal(tree.root.findByProps({ role: "dialog" }).props["aria-label"], "供应商限额明细");
+    assert.equal(tree.root.findAllByProps({ role: "tab" }).length, 0);
     assert.equal(tree.root.findAllByProps({ className: "qm-pop" }).length, 0);
     await act(async () => button(tree, "关闭").props.onClick());
     assert.equal(tree.root.findAllByProps({ role: "dialog" }).length, 0);
@@ -202,7 +203,8 @@ for (const [warnPct, critPct, tones] of [[undefined, undefined, ["ok", "ok", "ok
       assert.deepEqual(renderedTones(), tones.map((tone) => `ci-big ${tone}`));
       const card = tree.root.findByProps({ "data-supplier": "opencode" });
       assert.ok(textOf(card).includes(tones.at(-1) === "crit" ? "临界" : "正常"));
-      await act(async () => card.findAllByType("button").find((node) => textOf(node) === "配置").props.onClick());
+      await act(async () => button(tree, "设置").props.onClick());
+      await act(async () => button(tree, "配置").props.onClick());
       assert.deepEqual(renderedTones(), tones.map((tone) => `ci-big ${tone}`));
       assert.ok(textOf(tree.root.findByProps({ className: "qm-page-head" })).includes(tones.at(-1) === "crit" ? "临界" : "正常"));
     } finally { await act(async () => tree?.unmount()); }

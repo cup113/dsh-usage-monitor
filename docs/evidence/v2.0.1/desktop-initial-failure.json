@@ -1,0 +1,21 @@
+{
+  "startedAt": "2026-10-04T13:47:34.285Z",
+  "status": "failed",
+  "checks": [
+    "desktop-custom-scheme-state",
+    "sidebar-widget",
+    "sidebar-density-persisted"
+  ],
+  "source": "npm-package",
+  "supplierQueries": "notRun",
+  "supplierQueriesReason": "隔离环境未配置真实供应商凭据，未发送聊天或付费查询。",
+  "packageSha256": "17cd0d16988da069929e9d39dba57ef82dae496b71b78fdcf5fe906e340e06a1",
+  "runtime": {
+    "version": "0.2.0-rc.2",
+    "electron": "44.0.0",
+    "node": "24.18.1"
+  },
+  "protocol": "dsh-app:",
+  "error": "page.screenshot: Timeout 30000ms exceeded.\nCall log:\n\u001b[2m  - taking page screenshot\u001b[22m\n\u001b[2m  - waiting for fonts to load...\u001b[22m\n\u001b[2m  - fonts loaded\u001b[22m\n",
+  "finishedAt": "2026-10-04T13:48:18.373Z"
+}

@@ -102,7 +102,7 @@ export function createCtx({ config = {}, user, schema, foreign = [], inactive = 
         else events.delete(name);
       };
     },
-    get: (name) => (name === "credentials" ? { resolve: async () => null } : undefined),
+    get: (name) => (name === "settings" ? ctx.settings : name === "credentials" ? { resolve: async () => null } : undefined),
     logger: logger ?? { info() {}, warn() {}, error() {} },
   };
   settings.onUpdate(() => {

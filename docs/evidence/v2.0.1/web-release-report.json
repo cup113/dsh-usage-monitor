@@ -1,0 +1,22 @@
+{
+  "startedAt": "2026-10-04T15:43:49.951Z",
+  "status": "passed",
+  "checks": [
+    "real-web-state-and-sidebar",
+    "independent-details-focus-and-density",
+    "web-nonsecret-config-persisted",
+    "web-supplier-editor-and-rescan",
+    "web-native-settings-reread"
+  ],
+  "source": "npm-package",
+  "host": "real-dsh-web",
+  "supplierQueries": "notRun",
+  "supplierQueriesReason": "隔离环境未配置真实供应商凭据，未发送聊天或付费查询。",
+  "packageSha256": "99f9007d6ce05c6899697d429ca6e2a7faf670efc59563831a1f23c742310d10",
+  "runtime": {
+    "cli": "0.2.0-rc.2",
+    "browser": "Chromium"
+  },
+  "url": "http://127.0.0.1:8944",
+  "finishedAt": "2026-10-04T15:43:57.809Z"
+}

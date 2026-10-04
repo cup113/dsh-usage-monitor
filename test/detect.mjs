@@ -30,7 +30,7 @@ const settings1 = rowsOf({
     },
 });
 const ctx1 = {
-  get: (name) => (name === "llm" ? llm1 : name === "credentials" ? credentials1 : undefined),
+  get: (name) => (name === "settings" ? settings1 : name === "llm" ? llm1 : name === "credentials" ? credentials1 : undefined),
   settings: settings1,
 };
 const llm1 = {

@@ -88,16 +88,22 @@ try {
   await page.getByRole("button", { name: /^(稍后配置|Set up later|Skip for now)$/ }).click();
   await page.locator("[data-qm-density]").getByRole("button", { name: /^(展开|Expand)$/ }).click();
   await page.locator("[data-qm-entry]").click();
-  const panel = page.getByRole("dialog", { name: /^(用量监控|Usage monitor)$/ });
-  await expect(panel).toBeVisible();
-  await expect(panel.getByRole("tab", { name: /^(概览|Overview)$/ })).toHaveAttribute("aria-selected", "true");
-  await page.screenshot({ path: join(output, "overview.png") });
+  const detail = page.getByRole("dialog", { name: /^(供应商限额明细|Supplier quota details)$/ });
+  await expect(detail).toBeVisible();
+  await expect(detail.getByRole("tab")).toHaveCount(0);
+  await expect(detail.locator(".qm-cols")).toBeVisible();
+  await expect(detail.locator(".qm-history table")).toHaveCount(1);
+  await page.screenshot({ path: join(output, "details.png") });
   await page.keyboard.press("Escape");
-  await expect(panel).toHaveCount(0);
+  await expect(detail).toHaveCount(0);
   await expect(page.locator("[data-qm-entry]")).toBeFocused();
-  report.checks.push("direct-overview-focus-and-density");
+  report.checks.push("independent-details-focus-and-density");
 
   await page.locator("[data-qm-entry]").click();
+  await detail.getByRole("button", { name: /^(设置|Settings)$/ }).click();
+  await expect(detail).toHaveCount(0);
+  const panel = page.getByRole("dialog", { name: /^(用量监控|Usage monitor)$/ });
+  await expect(panel.getByRole("tab")).toHaveCount(3);
   await panel.getByRole("tab", { name: /^(设置|Settings)$/ }).click();
   await panel.locator('input[max="3600"]').fill("75");
   await panel.getByRole("button", { name: /^(保存|Save)$/ }).click();

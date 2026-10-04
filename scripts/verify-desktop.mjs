@@ -76,17 +76,22 @@ try {
   report.checks.push("sidebar-density-persisted");
 
   await page.locator("[data-qm-entry]").click();
-  const detail = page.getByRole("dialog", { name: /^(用量监控|Usage monitor)$/ });
+  const detail = page.getByRole("dialog", { name: /^(供应商限额明细|Supplier quota details)$/ });
   await expect(detail).toBeVisible();
-  await expect(detail.getByRole("tab", { name: /^(概览|Overview)$/ })).toHaveAttribute("aria-selected", "true");
+  await expect(detail.getByRole("tab")).toHaveCount(0);
+  await expect(detail.locator(".qm-cols")).toBeVisible();
+  await expect(detail.locator(".qm-history table")).toHaveCount(1);
   await page.screenshot({ path: join(output, "details.png") });
   await page.keyboard.press("Escape");
   await expect(detail).toHaveCount(0);
   await expect(page.locator(".qm-strip")).toBeFocused();
-  report.checks.push("direct-overview-and-focus-return");
+  report.checks.push("independent-details-and-focus-return");
 
   await page.locator("[data-qm-entry]").click();
+  await detail.getByRole("button", { name: /^(设置|Settings)$/ }).click();
+  await expect(detail).toHaveCount(0);
   const settings = page.locator(".qm-settings");
+  await expect(settings.getByRole("tab")).toHaveCount(3);
   await settings.getByRole("tab", { name: /^(设置|Settings)$/ }).click();
   await expect(settings.locator('input[max="3600"]')).toBeVisible();
   await settings.locator('input[max="3600"]').fill("75");

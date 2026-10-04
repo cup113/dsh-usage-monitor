@@ -86,7 +86,7 @@ const ctx = {
     },
   },
   get: (name) =>
-    name === "credentials"
+    name === "settings" ? ctx.settings : name === "credentials"
       ? { resolve: async (ref) => ({ value: "file-sk-" + ref, source: "file" }) }
       : undefined,
   webServer: { register: (route) => { ctx._routes.push(route); return () => {}; } },

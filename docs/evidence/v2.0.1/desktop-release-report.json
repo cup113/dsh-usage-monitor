@@ -1,0 +1,27 @@
+{
+  "startedAt": "2026-10-04T15:43:50.835Z",
+  "status": "passed",
+  "checks": [
+    "desktop-custom-scheme-state",
+    "sidebar-widget",
+    "sidebar-density-persisted",
+    "independent-details-and-focus-return",
+    "settings-persist-through-desktop-transport",
+    "optional-services-and-rescan",
+    "supplier-editor-nonsecret-save",
+    "native-settings-section",
+    "desktop-collapse-reopen-and-dialog-bounds"
+  ],
+  "source": "npm-package",
+  "supplierQueries": "notRun",
+  "supplierQueriesReason": "隔离环境未配置真实供应商凭据，未发送聊天或付费查询。",
+  "packageSha256": "99f9007d6ce05c6899697d429ca6e2a7faf670efc59563831a1f23c742310d10",
+  "screenshotMethod": "electron.webContents.capturePage",
+  "runtime": {
+    "version": "0.2.0-rc.2",
+    "electron": "44.0.0",
+    "node": "24.18.1"
+  },
+  "protocol": "dsh-app:",
+  "finishedAt": "2026-10-04T15:44:35.000Z"
+}
