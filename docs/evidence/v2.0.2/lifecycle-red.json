@@ -1,0 +1,11 @@
+{
+  "status": "failed",
+  "checks": [],
+  "startedAt": "2026-10-04T15:51:39.079Z",
+  "runtime": {
+    "electron": "44.0.0",
+    "node": "24.18.1"
+  },
+  "error": "Error: webserver: duplicate exact route \"/api/dsh-token-quota/state\"\n    at Proxy.register (file:///D:/AI/DeepSeek-%20Harness/resources/app.asar/dsh/node_modules/@deepseek-ai/dsh-host-webserver/lib/index.js:179:36)\n    at Object.apply (file:///D:/AI/DeepSeek-%20Harness/resources/app.asar/dsh/node_modules/@deepseek-ai/cordis/lib/index.js:120:36)\n    at new apply (file:///D:/AI/documents/codex/dsh-token-quota/lib/index.js:958:60)\n    at Fiber.execute (file:///D:/AI/DeepSeek-%20Harness/resources/app.asar/dsh/node_modules/@deepseek-ai/cordis/lib/index.js:1068:24)\n    at file:///D:/AI/DeepSeek-%20Harness/resources/app.asar/dsh/node_modules/@deepseek-ai/cordis/lib/index.js:1142:34\n    at D:\\AI\\documents\\codex\\dsh-token-quota\\scripts\\verify-lifecycle.cjs:29:24\n    at process.processTicksAndRejections (node:internal/process/task_queues:104:5)",
+  "finishedAt": "2026-10-04T15:51:39.199Z"
+}

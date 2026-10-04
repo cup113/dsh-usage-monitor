@@ -63,6 +63,24 @@ try {
   const first = await state();
   assert.equal(first.ok, true);
   report.checks.push("desktop-custom-scheme-state", "sidebar-widget");
+  // 对齐用户在插件详情中停用并重新启用组件的触发路径。
+  await page.getByText("插件", { exact: true }).click();
+  await page.getByText("dsh-token-quota", { exact: true }).first().click();
+  const pluginDetail = page.locator('[data-plugin-detail="dsh-token-quota"]');
+  await expect(pluginDetail).toBeVisible();
+  const componentSwitch = pluginDetail.getByRole("switch", { name: /^(启用组件|Enable part) dsh-token-quota$/ });
+  const routeStatus = () => page.evaluate(async () => (await fetch("/api/dsh-token-quota/state")).status);
+  for (let cycle = 0; cycle < 3; cycle++) {
+    await expect(componentSwitch).toBeChecked();
+    await componentSwitch.click();
+    await expect(componentSwitch).not.toBeChecked();
+    await expect.poll(routeStatus).toBe(404);
+    await componentSwitch.click();
+    await expect(componentSwitch).toBeChecked();
+    await expect.poll(routeStatus).toBe(200);
+    assert.equal((await state()).ok, true);
+  }
+  report.checks.push("plugin-detail-disable-enable-three-cycles");
   await page.screenshot({ path: join(output, "widget.png"),
     mask: [page.getByRole("button", { name: /^(账号菜单|Account menu)$/ })], maskColor: "#f7f8fa" });
 

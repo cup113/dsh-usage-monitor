@@ -1,0 +1,15 @@
+{
+  "status": "passed",
+  "checks": [
+    "failed-activation-rollback-preserves-conflicting-owner",
+    "activation-restart-disable-1",
+    "activation-restart-disable-2",
+    "activation-restart-disable-3"
+  ],
+  "startedAt": "2026-10-04T15:57:48.290Z",
+  "runtime": {
+    "electron": "44.0.0",
+    "node": "24.18.1"
+  },
+  "finishedAt": "2026-10-04T15:57:48.482Z"
+}

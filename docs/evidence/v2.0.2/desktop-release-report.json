@@ -1,0 +1,29 @@
+{
+  "startedAt": "2026-10-04T15:57:48.840Z",
+  "status": "passed",
+  "checks": [
+    "desktop-custom-scheme-state",
+    "sidebar-widget",
+    "plugin-detail-disable-enable-three-cycles",
+    "sidebar-density-persisted",
+    "independent-details-and-focus-return",
+    "settings-persist-through-desktop-transport",
+    "optional-services-and-rescan",
+    "supplier-editor-nonsecret-save",
+    "native-settings-section",
+    "desktop-collapse-reopen-and-dialog-bounds"
+  ],
+  "source": "npm-package",
+  "supplierQueries": "notRun",
+  "supplierQueriesReason": "隔离环境未配置真实供应商凭据，未发送聊天或付费查询。",
+  "packageSha256": "e401e447fbf882c6536b56ee4e805c9e1fbe46a3454acc220d0d5df9cdb85443",
+  "screenshots": "notRun",
+  "screenshotReason": "本轮验证生命周期与功能；当前安装版截图存在已记录的超时和重复旧帧问题。",
+  "runtime": {
+    "version": "0.2.0-rc.2",
+    "electron": "44.0.0",
+    "node": "24.18.1"
+  },
+  "protocol": "dsh-app:",
+  "finishedAt": "2026-10-04T15:58:13.992Z"
+}
