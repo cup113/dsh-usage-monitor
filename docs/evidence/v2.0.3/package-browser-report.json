@@ -1,0 +1,35 @@
+{
+  "status": "passed",
+  "packageSha256": "f12daeefbf7aac92bce1db9ff786382a1bf329892141d67ba2479ce6728e93dd",
+  "browser": {
+    "passed": 24,
+    "failed": 0
+  },
+  "unit": {
+    "passed": 77,
+    "failed": 0,
+    "skipped": 0
+  },
+  "checks": {
+    "sourceUnit": {
+      "status": "passed",
+      "log": ".scratch\\popover-unit-final.log",
+      "logSha256": "e4bd1ff3447dff1994fd7b101724f15f29e40a27e6bebc5ce0efa73d90d051cb"
+    },
+    "sourceBrowser": {
+      "status": "passed",
+      "log": ".scratch\\popover-browser-verified.log",
+      "logSha256": "70fc54d5bdbef185d80f9d848663868aa2a16073388b1583454c941f12e52207"
+    },
+    "packageUnit": {
+      "status": "passed",
+      "log": ".scratch\\usage-popover-v2.0.3\\package-unit.log",
+      "logSha256": "a135092aada770779884674b2b1a34fc473be092fa526500a80ec2e0e05d57c0"
+    },
+    "packageBrowser": {
+      "status": "passed",
+      "log": ".scratch\\usage-popover-v2.0.3\\package-browser.log",
+      "logSha256": "ced4a40ccb970231cc69512b0433036e497c2e7690fff4186e96b9b0b54fd4c3"
+    }
+  }
+}

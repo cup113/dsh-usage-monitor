@@ -88,6 +88,14 @@ try {
   await page.getByRole("button", { name: /^(稍后配置|Set up later|Skip for now)$/ }).click();
   await page.locator("[data-qm-density]").getByRole("button", { name: /^(展开|Expand)$/ }).click();
   await page.locator("[data-qm-entry]").click();
+  const popover = page.getByRole("dialog", { name: /^(用量|Usage)$/ });
+  await expect(popover).toBeVisible();
+  await expect(page.locator(".qm-overlay")).toHaveCount(0);
+  const popupBox = await popover.boundingBox(), anchorBox = await page.locator("[data-qm-entry]").boundingBox();
+  assert.ok(popupBox.y + popupBox.height <= anchorBox.y && popupBox.x >= 0);
+  report.checks.push("sidebar-anchored-usage-popover");
+  await page.screenshot({ path: join(output, "usage-popover.png") });
+  await popover.getByRole("button", { name: /^(详情|Details)$/ }).click();
   const detail = page.getByRole("dialog", { name: /^(供应商限额明细|Supplier quota details)$/ });
   await expect(detail).toBeVisible();
   await expect(detail.getByRole("tab")).toHaveCount(0);
@@ -100,7 +108,7 @@ try {
   report.checks.push("independent-details-focus-and-density");
 
   await page.locator("[data-qm-entry]").click();
-  await detail.getByRole("button", { name: /^(设置|Settings)$/ }).click();
+  await popover.getByRole("button", { name: /^(设置|Settings)$/ }).click();
   await expect(detail).toHaveCount(0);
   const panel = page.getByRole("dialog", { name: /^(用量监控|Usage monitor)$/ });
   await expect(panel.getByRole("tab")).toHaveCount(3);

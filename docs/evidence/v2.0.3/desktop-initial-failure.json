@@ -1,0 +1,23 @@
+{
+  "startedAt": "2026-10-04T16:26:30.873Z",
+  "status": "failed",
+  "checks": [
+    "desktop-custom-scheme-state",
+    "sidebar-widget",
+    "plugin-detail-disable-enable-three-cycles"
+  ],
+  "source": "npm-package",
+  "supplierQueries": "notRun",
+  "supplierQueriesReason": "隔离环境未配置真实供应商凭据，未发送聊天或付费查询。",
+  "packageSha256": "f12daeefbf7aac92bce1db9ff786382a1bf329892141d67ba2479ce6728e93dd",
+  "screenshots": "notRun",
+  "screenshotReason": "本轮验证生命周期与功能；当前安装版截图存在已记录的超时和重复旧帧问题。",
+  "runtime": {
+    "version": "0.2.0-rc.2",
+    "electron": "44.0.0",
+    "node": "24.18.1"
+  },
+  "protocol": "dsh-app:",
+  "error": "expect(locator).toHaveAttribute(expected) failed\n\nLocator: locator('[data-qm-density]')\nExpected: \"compact\"\nError: element(s) not found\n\nCall log:\n  - Expect \"toHaveAttribute\" locator('[data-qm-density]') with timeout 30000ms\n  - waiting for locator('[data-qm-density]')\n  - Target page, context or browser has been closed\n",
+  "finishedAt": "2026-10-04T16:27:01.792Z"
+}

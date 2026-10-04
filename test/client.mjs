@@ -50,16 +50,19 @@ const response = (data) => ({ ok: true, status: 200, json: async () => data });
 const payload = (name, suppliers = []) => ({ ok: true, traffic: { channelAlive: true }, suppliers, active: { supplierId: suppliers[0]?.id, name, model: "model", at: Date.now() } });
 const supplier = (entries, extra = {}) => ({ id: "opencode", name: "OpenCode", current: true, added: true, enabled: true, state: "ok", todayTokens: 0, entries, ...extra });
 
-for (const wide of [true, false]) test(`${wide ? "expanded" : "rail"} sidebar directly opens and closes the monitor dialog`, async () => {
+for (const wide of [true, false]) test(`${wide ? "expanded" : "rail"} sidebar opens a usage popover before independent details`, async () => {
   const host = client(async () => response(payload("A")));
   let tree;
   try {
     tree = await mount(host, { wide });
     await open(tree);
     assert.equal(tree.root.findAllByProps({ role: "dialog" }).length, 1);
-    assert.equal(tree.root.findByProps({ role: "dialog" }).props["aria-label"], "供应商限额明细");
+    assert.equal(tree.root.findByProps({ role: "dialog" }).props["aria-label"], "用量");
     assert.equal(tree.root.findAllByProps({ role: "tab" }).length, 0);
+    assert.equal(tree.root.findAllByProps({ className: "qm-pop" }).length, 1);
+    await act(async () => button(tree, "详情").props.onClick());
     assert.equal(tree.root.findAllByProps({ className: "qm-pop" }).length, 0);
+    assert.equal(tree.root.findByProps({ role: "dialog" }).props["aria-label"], "供应商限额明细");
     await act(async () => button(tree, "关闭").props.onClick());
     assert.equal(tree.root.findAllByProps({ role: "dialog" }).length, 0);
   } finally { await act(async () => tree?.unmount()); }
@@ -200,6 +203,7 @@ for (const [warnPct, critPct, tones] of [[undefined, undefined, ["ok", "ok", "ok
     try {
       tree = await mount(host);
       await open(tree);
+      await act(async () => button(tree, "详情").props.onClick());
       assert.deepEqual(renderedTones(), tones.map((tone) => `ci-big ${tone}`));
       const card = tree.root.findByProps({ "data-supplier": "opencode" });
       assert.ok(textOf(card).includes(tones.at(-1) === "crit" ? "临界" : "正常"));
@@ -220,6 +224,7 @@ test("unknown percentage and healthy balance remain neutral; failed old values s
     assert.match(line(tree, "qm-l1"), /更新失败 · 上次数据/);
     assert.match(line(tree, "qm-l3"), /\$3/);
     await open(tree);
+    await act(async () => button(tree, "详情").props.onClick());
     const card = tree.root.findByProps({ "data-supplier": "opencode" });
     assert.ok(textOf(card).includes("quota endpoint unavailable"));
     assert.ok(textOf(card).includes("数据时间"));

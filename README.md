@@ -2,9 +2,15 @@
 
 DeepSeek Harness 用量监控插件。查看当前会话对应供应商的周期限额、账户余额、报告费用和今日 Token 用量，支持 Windows 桌面端与 Web 界面。
 
-当前版本：**v2.0.2**。要求 **DSH ≥ 0.1.7-rc.2**；真实桌面及 Web 验收环境为 **DSH 0.2.0-rc.2**。
+当前版本：**v2.0.3**。要求 **DSH ≥ 0.1.7-rc.2**；真实桌面及 Web 验收环境为 **DSH 0.2.0-rc.2**。
 
 [GitHub 下载](https://github.com/shxtmaker/dsh-token-quota/releases/latest) · [问题反馈](https://github.com/shxtmaker/dsh-token-quota/issues)
+
+## v2.0.3 更新
+
+- 点击侧栏打开贴在卡片上方的用量浮卡，显示供应商主指标、查询状态、刷新间隔和上次刷新时间。
+- 浮卡底部提供“详情”“设置”“关闭”；完整供应商明细和现有配置面板继续保留。
+- 浮卡适配完整、紧凑和图标侧栏，支持再次点击、Esc 和外部点击关闭，随窗口变化调整位置。
 
 ## v2.0.2 更新
 
@@ -28,7 +34,7 @@ DeepSeek Harness 用量监控插件。查看当前会话对应供应商的周期
 
 ## 安装
 
-从 Release 下载 **`dsh-token-quota-2.0.2.tgz`**。该文件是插件安装包，`dsh-token-quota-2.0.2-source.tar.gz` 是源码包。插件包不包含 DeepSeek Harness；首次安装可能需要联网下载依赖。
+从 Release 下载 **`dsh-token-quota-2.0.3.tgz`**。该文件是插件安装包，`dsh-token-quota-2.0.3-source.tar.gz` 是源码包。插件包不包含 DeepSeek Harness；首次安装可能需要联网下载依赖。
 
 ### Windows 桌面端
 
@@ -36,7 +42,7 @@ DeepSeek Harness 用量监控插件。查看当前会话对应供应商的周期
 
 ```powershell
 $desktopCli = 'D:\AI\DeepSeek- Harness\resources\runtime\cli\bin\dsh.cmd'
-$archivePath = (Resolve-Path './dsh-token-quota-2.0.2.tgz').Path
+$archivePath = (Resolve-Path './dsh-token-quota-2.0.3.tgz').Path
 & $desktopCli plugin --profile desktop add "file:$archivePath"
 & $desktopCli plugin --profile desktop list --depth 0
 ```
@@ -50,19 +56,19 @@ $archivePath = (Resolve-Path './dsh-token-quota-2.0.2.tgz').Path
 Linux / macOS：
 
 ```bash
-dsh plugin --profile web add "file:$(pwd)/dsh-token-quota-2.0.2.tgz"
+dsh plugin --profile web add "file:$(pwd)/dsh-token-quota-2.0.3.tgz"
 dsh --profile web
 ```
 
 Windows PowerShell：
 
 ```powershell
-$archivePath = (Resolve-Path './dsh-token-quota-2.0.2.tgz').Path
+$archivePath = (Resolve-Path './dsh-token-quota-2.0.3.tgz').Path
 dsh plugin --profile web add "file:$archivePath"
 dsh --profile web
 ```
 
-若旧版本已提示重复路由，先完全退出 DSH，再安装 v2.0.2 并重新启动，以清除当前进程中遗留的旧路由。
+若旧版本已提示重复路由，先完全退出 DSH，再安装 v2.0.3 并重新启动，以清除当前进程中遗留的旧路由。
 
 安装或升级前，请先结束当前任务并退出对应 DSH 实例。压缩包升级时，用新包重新执行 `add` 命令，然后重启 DSH 并刷新 Web 页面。
 
@@ -87,7 +93,7 @@ dsh plugin --profile web add "link:$pluginDirectory"
 
 ## 开始使用
 
-1. 单击侧栏组件打开详情，点击「设置」，再进入「供应商」页签。
+1. 单击侧栏组件打开用量浮卡，点击「设置」，再进入「供应商」页签。
 2. 点击「重新扫描」，识别 Harness 已配置的普通 API Key；需要更高权限凭据的供应商请手动配置。
 3. 打开供应商配置，填写必要字段、启用供应商并保存。秘密字段留空会保留旧值。
 4. 使用「测试连接」检查已保存配置，或返回概览刷新数据。
@@ -99,7 +105,9 @@ dsh plugin --profile web add "link:$pluginDirectory"
 
 完整侧栏显示当前会话最近调用的供应商与模型、主指标、对应窗口的重置时间及今日用量。紧凑侧栏保留供应商与主指标。独立箭头切换显示状态，偏好保存在当前浏览器；宽度不足时自动使用紧凑显示，恢复宽度后恢复用户选择。
 
-单击侧栏打开独立详情弹窗。已添加供应商各占一栏，各周期和币种分别展示；窄窗口可横向滚动。默认收起的刷新历史表格最多展示最近 50 条。点击「设置」进入配置面板；宿主「设置 → 用量监控」也可直接进入该面板。
+单击侧栏打开用量浮卡，查看已添加供应商的主指标与查询状态。浮卡贴在侧栏卡片上方，窗口变化时自动调整位置；再次点击侧栏、按 Esc、点击外部或“关闭”均可收起。
+
+点击浮卡中的“详情”打开完整明细。已添加供应商各占一栏，各周期和币种分别展示；窄窗口可横向滚动。默认收起的刷新历史表格最多展示最近 50 条。点击“设置”进入配置面板；宿主“设置 → 用量监控”也可直接进入该面板。
 
 | 页签 | 内容 |
 | --- | --- |
@@ -172,8 +180,8 @@ npm pack
 真实宿主验收使用独立数据目录与 profile，不修改日常配置：
 
 ```powershell
-npm run test:desktop -- --app 'C:/path/DeepSeek Harness.exe' --package 'C:/path/dsh-token-quota-2.0.2.tgz' --output '.scratch/desktop-v2-check'
-node scripts/verify-web.mjs --app 'C:/path/DeepSeek Harness.exe' --package 'C:/path/dsh-token-quota-2.0.2.tgz' --output '.scratch/web-v2-check'
+npm run test:desktop -- --app 'C:/path/DeepSeek Harness.exe' --package 'C:/path/dsh-token-quota-2.0.3.tgz' --output '.scratch/desktop-v2-check'
+node scripts/verify-web.mjs --app 'C:/path/DeepSeek Harness.exe' --package 'C:/path/dsh-token-quota-2.0.3.tgz' --output '.scratch/web-v2-check'
 npm run test:lifecycle -- --app 'C:/path/DeepSeek Harness.exe' --output '.scratch/lifecycle-v2-check'
 ```
 

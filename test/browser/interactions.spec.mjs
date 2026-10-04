@@ -31,6 +31,7 @@ test("restored details show supplier columns and a bounded history table before 
   await page.route(/\/api\/dsh-token-quota\/state(?:\?.*)?$/, route => route.fulfill({ json: fixture }));
   await page.goto("/");
   await page.locator("[data-qm-entry]").click();
+  await page.locator(".qm-pop").getByRole("button", { name: "详情", exact: true }).click();
   const detail = page.getByRole("dialog", { name: "供应商限额明细", exact: true });
   await expect(detail).toBeVisible();
   await expect(detail.getByRole("tab")).toHaveCount(0);
@@ -60,7 +61,7 @@ test.beforeEach(async ({ request }) => {
 });
 
 for (const [width, density] of [[240, "expanded"], [180, "compact"], [64, "rail"]]) {
-  test(`A2 ${width}px sidebar directly opens details and returns focus`, async ({ page }) => {
+  test(`A2 ${width}px sidebar opens an anchored popover and returns focus`, async ({ page }) => {
     await useDisplayFixture(page);
     await page.goto(density === "rail" ? "/?rail&width=64" : `/?width=${width}`);
     const opener = page.locator("[data-qm-entry]");
@@ -72,16 +73,22 @@ for (const [width, density] of [[240, "expanded"], [180, "compact"], [64, "rail"
       expect(metricBox.x + metricBox.width).toBeLessThanOrEqual(entryBox.x + entryBox.width);
     }
     await opener.click();
-    const dialog = page.getByRole("dialog", { name: "供应商限额明细", exact: true });
+    const dialog = page.getByRole("dialog", { name: "用量", exact: true });
     await expect(dialog).toBeVisible();
+    await expect(dialog).not.toHaveAttribute("aria-modal", "true");
     await expect(dialog.getByRole("tab")).toHaveCount(0);
+    await expect(page.locator(".qm-overlay")).toHaveCount(0);
+    const popupBox = await dialog.boundingBox(), anchorBox = await opener.boundingBox();
+    expect(popupBox.y + popupBox.height).toBeLessThanOrEqual(anchorBox.y);
+    expect(popupBox.x).toBeGreaterThanOrEqual(0);
+    expect(popupBox.x + popupBox.width).toBeLessThanOrEqual(1180);
     if (width === 240) {
       await expect(dialog.locator('[data-supplier="deepseek"]')).toContainText("更新失败 · 上次数据");
-      await expect(dialog.locator('[data-metric-kind="balance"]')).toHaveCount(2);
+      await expect(dialog.locator('[data-supplier="deepseek"]')).toContainText("另有 1 项");
       await mkdir(visualDirectory, { recursive: true });
       await page.screenshot({ path: resolve(visualDirectory, "overview-normal-and-stale.png"), fullPage: true });
     }
-    await expect(page.locator(".qm-pop")).toHaveCount(0);
+    await expect(page.locator(".qm-pop")).toHaveCount(1);
     await page.keyboard.press("Escape");
     await expect(dialog).toHaveCount(0);
     await expect(opener).toBeFocused();
@@ -104,18 +111,45 @@ test("A2 sidebar preference persists and automatic narrow layout never overwrite
   await page.evaluate(() => window.__qmHost.setWidth(240));
   await expect(strip).toHaveAttribute("data-qm-density", "expanded");
   await page.locator("[data-qm-entry]").click();
-  await page.getByRole("dialog", { name: "供应商限额明细", exact: true }).getByRole("button", { name: "设置", exact: true }).click();
+  await page.locator(".qm-pop").getByRole("button", { name: "设置", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "用量监控", exact: true });
   await dialog.getByRole("tab", { name: "设置", exact: true }).click();
   await dialog.getByLabel("侧栏显示", { exact: true }).selectOption("compact");
   await expect(strip).toHaveAttribute("data-qm-density", "compact");
 });
 
+test("usage popover toggles, dismisses without a backdrop, and fits resized viewports", async ({ page }) => {
+  await useDisplayFixture(page);
+  await page.goto("/");
+  const entry = page.locator("[data-qm-entry]");
+  const popover = page.getByRole("dialog", { name: "用量", exact: true });
+  await entry.click();
+  await expect(entry).toHaveAttribute("aria-expanded", "true");
+  await expect(popover).toBeVisible();
+  await entry.click();
+  await expect(popover).toHaveCount(0);
+  await entry.click();
+  await page.getByRole("button", { name: "打开原生设置", exact: true }).click();
+  await expect(popover).toHaveCount(0);
+  await expect(page.locator(".qm-settings-page")).toBeVisible();
+  await entry.click();
+  await page.setViewportSize({ width: 280, height: 380 });
+  await expect(popover).toBeVisible();
+  const box = await popover.boundingBox();
+  expect(box.x).toBeGreaterThanOrEqual(0);
+  expect(box.y).toBeGreaterThanOrEqual(0);
+  expect(box.x + box.width).toBeLessThanOrEqual(280);
+  expect(box.y + box.height).toBeLessThanOrEqual(380);
+  await popover.getByRole("button", { name: "关闭", exact: true }).click();
+  await expect(popover).toHaveCount(0);
+  await expect(entry).toBeFocused();
+});
+
 test("A3 dialog traps focus, preserves organization and retains a rejected draft", async ({ page }) => {
   await page.goto("/");
   const opener = page.locator("[data-qm-entry]");
   await opener.click();
-  await page.getByRole("dialog", { name: "供应商限额明细", exact: true }).getByRole("button", { name: "设置", exact: true }).click();
+  await page.locator(".qm-pop").getByRole("button", { name: "设置", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "用量监控", exact: true });
   await expect(dialog).toHaveAttribute("aria-modal", "true");
   await expect.poll(() => dialog.evaluate((node) => node.contains(document.activeElement))).toBe(true);
@@ -151,6 +185,7 @@ for (const light of [false, true]) {
     await page.goto(`/?rail${light ? "&light" : ""}`);
     const opener = page.locator("[data-qm-entry]");
     await opener.click();
+    await page.locator(".qm-pop").getByRole("button", { name: "详情", exact: true }).click();
     const dialog = page.getByRole("dialog", { name: "供应商限额明细", exact: true });
     await expect(dialog).toBeVisible();
     await expect(dialog.locator('[data-metric-kind="balance"]')).toHaveCount(2);
@@ -178,7 +213,7 @@ test("A3 embedded settings has no modal restrictions and sidebar reuses it", asy
   await expect(panel).toBeVisible();
   await expect(page.locator("#background")).toBeFocused();
   await page.locator("[data-qm-entry]").click();
-  await page.getByRole("dialog", { name: "供应商限额明细", exact: true }).getByRole("button", { name: "设置", exact: true }).click();
+  await page.locator(".qm-pop").getByRole("button", { name: "设置", exact: true }).click();
   await expect(panel.getByRole("tab", { name: "概览", exact: true })).toHaveAttribute("aria-selected", "true");
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await panel.locator("button:visible, summary:visible, input:visible, select:visible").last().focus();
@@ -189,7 +224,7 @@ test("A3 embedded settings has no modal restrictions and sidebar reuses it", asy
 test("A3 native page takes over an open dialog and preserves its secret draft", async ({ page }) => {
   await page.goto("/");
   await page.locator("[data-qm-entry]").click();
-  await page.getByRole("dialog", { name: "供应商限额明细", exact: true }).getByRole("button", { name: "设置", exact: true }).click();
+  await page.locator(".qm-pop").getByRole("button", { name: "设置", exact: true }).click();
   const dialog = page.getByRole("dialog", { name: "用量监控", exact: true });
   await dialog.getByRole("tab", { name: "供应商", exact: true }).click();
   await dialog.locator('.qm-page-row[data-supplier="opencode"]').getByRole("button", { name: "配置", exact: true }).click();
