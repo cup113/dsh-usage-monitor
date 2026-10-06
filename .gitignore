@@ -1,4 +1,6 @@
 node_modules/
+# 受限沙箱里 ~/AppData/Local/npm-cache 不可写，安装/打包会把缓存重定向到这里
+.npm-cache/
 playwright-report/
 test-results/
 .scratch/

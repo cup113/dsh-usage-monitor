@@ -115,8 +115,10 @@ function writeLegacyDocument(text) {
   };
   const dispose = apply(ctx, configRef);
   await settle();
-  assert.equal(warnings.length, 1, "始终不可描述时必须 warn 留痕，不能静默");
-  assert.match(warnings[0], /跳过旧配置迁移/);
+  // 只看迁移相关的那一条：plugins 启动时还会打节假日表覆盖告警（另一件事），
+  // 用「总数」当断言会把两件互不相干的事绑在一起 —— 这里断言的是迁移是否留痕。
+  const migrationWarnings = warnings.filter((line) => /跳过旧配置迁移/.test(line));
+  assert.equal(migrationWarnings.length, 1, "始终不可描述时必须 warn 留痕，不能静默：" + JSON.stringify(warnings));
   dispose();
   console.log("✓ describe 不可用：不写入、走 warn 留痕");
 }
