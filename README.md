@@ -2,9 +2,15 @@
 
 DeepSeek Harness 用量监控插件。查看当前会话对应供应商的周期限额、账户余额、报告费用和今日 Token 用量，支持 Windows 桌面端与 Web 界面。
 
-当前版本：**v2.0.4**。要求 **DSH ≥ 0.1.7-rc.2**；真实桌面及 Web 验收环境为 **DSH 0.2.0-rc.2**。
+当前版本：**v2.0.5**。要求 **DSH ≥ 0.1.7-rc.2**；真实桌面及 Web 验收环境为 **DSH 0.2.0-rc.2**。
 
 [GitHub 下载](https://github.com/shxtmaker/dsh-token-quota/releases/latest) · [问题反馈](https://github.com/shxtmaker/dsh-token-quota/issues)
+
+## v2.0.5 更新
+
+- 修复智谱／Z.ai Coding Plan 查询失效：供应商已把用量窗口的类型名由 `TOKENS_LIMIT` 改名为 `CREDIT_LIMIT`，插件此前只认旧名，窗口全部被跳过，供应商显示为「暂时无法获取」。
+- 窗口改按 `unit` 标识分类（5 小时窗口、周窗口、月度 MCP 上限），不再依赖数组位置；新增周窗口与供应商公布的重置时刻。新旧拼写并存时都能读取，重复或无法命名的窗口如实报错，不猜一个窗口顶上。
+- 业务失败改按响应信封判定：密钥失效（HTTP 200 响应体内的 `code:401`）报鉴权失败，不再误报成「响应缺少 data.limits」。
 
 ## v2.0.4 更新
 
@@ -40,7 +46,7 @@ DeepSeek Harness 用量监控插件。查看当前会话对应供应商的周期
 
 ## 安装
 
-从 Release 下载 **`dsh-token-quota-2.0.4.tgz`**。该文件是插件安装包，`dsh-token-quota-2.0.4-source.tar.gz` 是源码包。插件包不包含 DeepSeek Harness；首次安装可能需要联网下载依赖。
+从 Release 下载 **`dsh-token-quota-2.0.5.tgz`**。该文件是插件安装包，`dsh-token-quota-2.0.5-source.tar.gz` 是源码包。插件包不包含 DeepSeek Harness；首次安装可能需要联网下载依赖。
 
 ### Windows 桌面端
 
@@ -48,7 +54,7 @@ DeepSeek Harness 用量监控插件。查看当前会话对应供应商的周期
 
 ```powershell
 $desktopCli = 'D:\AI\DeepSeek- Harness\resources\runtime\cli\bin\dsh.cmd'
-$archivePath = (Resolve-Path './dsh-token-quota-2.0.4.tgz').Path
+$archivePath = (Resolve-Path './dsh-token-quota-2.0.5.tgz').Path
 & $desktopCli plugin --profile desktop add "file:$archivePath"
 & $desktopCli plugin --profile desktop list --depth 0
 ```
@@ -62,14 +68,14 @@ $archivePath = (Resolve-Path './dsh-token-quota-2.0.4.tgz').Path
 Linux / macOS：
 
 ```bash
-dsh plugin --profile web add "file:$(pwd)/dsh-token-quota-2.0.4.tgz"
+dsh plugin --profile web add "file:$(pwd)/dsh-token-quota-2.0.5.tgz"
 dsh --profile web
 ```
 
 Windows PowerShell：
 
 ```powershell
-$archivePath = (Resolve-Path './dsh-token-quota-2.0.4.tgz').Path
+$archivePath = (Resolve-Path './dsh-token-quota-2.0.5.tgz').Path
 dsh plugin --profile web add "file:$archivePath"
 dsh --profile web
 ```
@@ -186,8 +192,8 @@ npm pack
 真实宿主验收使用独立数据目录与 profile，不修改日常配置：
 
 ```powershell
-npm run test:desktop -- --app 'C:/path/DeepSeek Harness.exe' --package 'C:/path/dsh-token-quota-2.0.4.tgz' --output '.scratch/desktop-v2-check'
-node scripts/verify-web.mjs --app 'C:/path/DeepSeek Harness.exe' --package 'C:/path/dsh-token-quota-2.0.4.tgz' --output '.scratch/web-v2-check'
+npm run test:desktop -- --app 'C:/path/DeepSeek Harness.exe' --package 'C:/path/dsh-token-quota-2.0.5.tgz' --output '.scratch/desktop-v2-check'
+node scripts/verify-web.mjs --app 'C:/path/DeepSeek Harness.exe' --package 'C:/path/dsh-token-quota-2.0.5.tgz' --output '.scratch/web-v2-check'
 npm run test:lifecycle -- --app 'C:/path/DeepSeek Harness.exe' --output '.scratch/lifecycle-v2-check'
 ```
 

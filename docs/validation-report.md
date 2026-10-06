@@ -1,5 +1,7 @@
 # 局部重构验证报告（R1–R6）
 
+后续 v2.0.5 智谱／Z.ai Coding Plan 窗口修复的验证记录见 [Coding Plan 窗口修复执行记录](zai-credit-limit-fix-execution.md)。
+
 后续 v2.0.4 重置时间修复的验证记录见 [重置时间修复执行记录](reset-time-fix-execution.md)。
 
 后续 v2.0.3 侧栏用量浮卡的验证记录见 [侧栏用量浮卡执行记录](usage-popover-execution.md)。下文保留 R1–R6 当时的环境与结果，不作为当前版本的实测数值。

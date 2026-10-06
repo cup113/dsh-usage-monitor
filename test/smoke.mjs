@@ -21,6 +21,8 @@ const orgOpenAi = (rows, more = false, next = null) => ({
 const orgClaude = (rows) => ({
   data: [{ starting_at: orgStart.toISOString(), ending_at: orgEnd.toISOString(), results: rows }],
 });
+// 智谱/Z.ai 的 nextResetTime（周窗口原始 epoch-毫秒，2026-10-12 实测值）
+const ZAI_RESET = 1791781957965;
 
 // 端点 → 响应体（URL 后缀匹配；同路径不同主机用数组形式分别命中）
 const ROUTES = [
@@ -41,11 +43,15 @@ const ROUTES = [
   ["/api/v1/credits", (u) => true, { data: { total_credits: 100, total_usage: 30 } }],
   ["/v1/users/me/balance", (u) => u.includes("api.moonshot.cn"), { code: 0, status: true, data: { available_balance: 8.5 } }],
   ["/v1/users/me/balance", (u) => u.includes("api.moonshot.ai"), { code: 0, status: true, data: { available_balance: 42.25 } }],
-  ["/api/monitor/usage/quota/limit", (u) => true, { data: { limits: [
-    { type: "TOKENS_LIMIT", percentage: 25 },
-    { type: "TIME_LIMIT", percentage: 10 },
-    { type: "FUTURE_LIMIT", percentage: 99 },
-  ] } }],
+  // Z.ai / 智谱实测载荷（2026-10-06）：用量桶已由 TOKENS_LIMIT 改名为 CREDIT_LIMIT，
+  // 窗口身份由 unit 决定（3 = 5 小时窗口，6 = 周窗口），TIME_LIMIT 是月度 MCP 上限。
+  ["/api/monitor/usage/quota/limit", (u) => true, { code: 200, msg: "Operation successful", success: true,
+    data: { limits: [
+      { type: "CREDIT_LIMIT", unit: 3, number: 5, usage: 2000, currentValue: 0, remaining: 2000, percentage: 0 },
+      { type: "CREDIT_LIMIT", unit: 6, number: 1, usage: 10000, currentValue: 1533, remaining: 8466, percentage: 15, nextResetTime: ZAI_RESET },
+      { type: "TIME_LIMIT", unit: 5, number: 1, usage: 1000, currentValue: 0, remaining: 1000, percentage: 10, nextResetTime: ZAI_RESET },
+      { type: "FUTURE_LIMIT", percentage: 99 },
+    ], level: "lite" } }],
   ["/v1/token_plan/remains", (u) => true, { base_resp: { status_code: 0 }, model_remains: [
     { model_name: "general",
       current_interval_remaining_percent: 80, current_interval_usage_count: 900, current_interval_total_count: 1000,
@@ -126,13 +132,30 @@ const msIntl = await PROVIDERS["moonshot-intl"].query(cfg());
 assert.equal(msIntl.entries[0].remain, "$42.25");
 console.log("✓ moonshot-cn ¥8.50 / moonshot-intl $42.25");
 
-// Z.ai / 智谱：Coding Plan 窗口（只保留 TOKENS_LIMIT / TIME_LIMIT）
+// Z.ai / 智谱：Coding Plan 窗口按 unit 分类（CREDIT_LIMIT 改名后的实测载荷）
 const zai = await PROVIDERS.zai.query(cfg());
-assert.equal(zai.entries.length, 2);
-assert.deepEqual(zai.entries.map((e) => e.pct), [25, 10]);
+assert.equal(zai.entries.length, 3, "5 小时 / 周 / MCP 三个窗口");
+assert.deepEqual(zai.entries.map((e) => e.name),
+  ["Token 用量（5 小时）", "Token 用量（周）", "MCP 用量（月）"], "展示顺序固定，与数组位置无关");
+assert.deepEqual(zai.entries.map((e) => e.pct), [0, 15, 10]);
+assert.equal(zai.state, "ok");
+assert.equal(zai.entries[1].resetAt, ZAI_RESET, "周窗口下发原始 epoch-毫秒重置时刻");
+assert.match(zai.entries[1].reset, /重置$/);
+assert.equal(zai.entries[0].resetAt, null, "未提供 nextResetTime 的窗口不伪造时刻");
+assert.equal(zai.entries[0].reset, "—");
+console.log("✓ zai Coding Plan 窗口:", zai.entries.map((e) => `${e.name}=${e.pct}%`).join(" | "));
+
+// 滚动发布：旧拼写 TOKENS_LIMIT 与 CREDIT_LIMIT 混用仍按 unit 取值，不按数组位置
+const zaiRoute = ROUTES.find(([p]) => p === "/api/monitor/usage/quota/limit");
+zaiRoute[2].data.limits = [
+  { type: "CREDIT_LIMIT", unit: 6, number: 1, percentage: 42, nextResetTime: ZAI_RESET },
+  { type: "TOKENS_LIMIT", unit: 3, number: 5, percentage: 7 },
+];
 const zaiCn = await PROVIDERS["zai-cn"].query(cfg());
 assert.equal(zaiCn.state, "ok");
-console.log("✓ zai/zai-cn Coding Plan 窗口:", zai.entries.map((e) => `${e.name}=${e.pct}%`).join(" | "));
+assert.deepEqual(zaiCn.entries.map((e) => e.name), ["Token 用量（5 小时）", "Token 用量（周）"]);
+assert.deepEqual(zaiCn.entries.map((e) => e.pct), [7, 42], "周窗口排在数组前面也不得串到 5 小时标签下");
+console.log("✓ zai-cn 旧拼写 + 乱序:", zaiCn.entries.map((e) => `${e.name}=${e.pct}%`).join(" | "));
 
 // MiniMax：Token Plan 窗口（显式剩余百分比取反为已用）
 const mm = await PROVIDERS.minimax.query(cfg());

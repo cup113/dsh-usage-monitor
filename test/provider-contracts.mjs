@@ -75,3 +75,71 @@ test("every official supplier accepts exactly its declared hosts/base paths and 
   assert.equal(OFFICIAL_ENDPOINTS.opencode, undefined);
   assert.equal(OFFICIAL_ENDPOINTS.commandcode, undefined);
 });
+
+// ---- Z.ai / 智谱：用量桶改名（TOKENS_LIMIT → CREDIT_LIMIT）后的窗口分类契约 ----
+// 实测（2026-10-06）：供应商把用量桶改名为 CREDIT_LIMIT，窗口身份只由 unit 决定
+// （3 = 5 小时窗口，6 = 周窗口），并把业务失败塞进 HTTP 200 的响应体里。
+const zaiEnvelope = (limits, envelope = {}) =>
+  ({ code: 200, msg: "Operation successful", success: true, data: { limits, level: "lite" }, ...envelope });
+const mockZai = (t, body) =>
+  t.mock.method(globalThis, "fetch", async () => ({ ok: true, status: 200, text: async () => JSON.stringify(body) }));
+
+test("Z.ai classifies usage buckets by unit, not by array position or spelling", async (t) => {
+  mockZai(t, zaiEnvelope([
+    { type: "CREDIT_LIMIT", unit: 6, number: 1, percentage: 42, nextResetTime: 1791781957965 },
+    { type: "TOKENS_LIMIT", unit: 3, number: 5, percentage: 7 }, // 滚动发布：旧拼写仍在
+  ]));
+  const result = await PROVIDERS["zai-cn"].query({ apiKey: "fake" });
+  assert.equal(result.state, "ok");
+  assert.deepEqual(result.entries.map((e) => [e.name, e.pct]),
+    [["Token 用量（5 小时）", 7], ["Token 用量（周）", 42]],
+    "周窗口排在数组前面也不得挂到 5 小时标签下");
+  assert.equal(result.entries[1].resetAt, 1791781957965, "周窗口的 epoch-毫秒重置时刻原样下发");
+  assert.equal(result.entries[0].resetAt, null, "没有 nextResetTime 就不伪造时刻");
+});
+
+test("Z.ai drops an unknown-unit window instead of mislabelling it", async (t) => {
+  mockZai(t, zaiEnvelope([
+    { type: "CREDIT_LIMIT", unit: 4, number: 1, percentage: 99 }, // 未来新增窗口：不得冒充已知窗口
+    { type: "CREDIT_LIMIT", unit: 3, number: 5, percentage: 7 },
+  ]));
+  const result = await PROVIDERS["zai-cn"].query({ apiKey: "fake" });
+  assert.equal(result.state, "ok");
+  assert.deepEqual(result.entries.map((e) => [e.name, e.pct]), [["Token 用量（5 小时）", 7]]);
+});
+
+test("Z.ai rejects a window named twice, in either spelling", async (t) => {
+  mockZai(t, zaiEnvelope([
+    { type: "TOKENS_LIMIT", unit: 6, number: 1, percentage: 42 },
+    { type: "CREDIT_LIMIT", unit: 6, number: 1, percentage: 15 }, // 同一窗口的两种拼写 = 重复，不挑一个显示
+  ]));
+  const result = await PROVIDERS["zai-cn"].query({ apiKey: "fake" });
+  assert.equal(result.state, "err");
+  assert.equal(result.error.code, "schema");
+});
+
+test("Z.ai rejects a payload whose usage buckets carry no known unit", async (t) => {
+  // 有用量桶却一个 unit 都认不出：供应商再次改版，不能退化成「没有窗口」
+  mockZai(t, zaiEnvelope([{ type: "CREDIT_LIMIT", unit: 9, percentage: 1 }]));
+  const result = await PROVIDERS["zai-cn"].query({ apiKey: "fake" });
+  assert.equal(result.state, "err");
+  assert.equal(result.error.code, "schema");
+  assert.match(result.error.message, /unit/, "错误信息要指出是按 unit 分类失败");
+});
+
+test("Z.ai maps a business-level 401 inside an HTTP 200 body to auth", async (t) => {
+  // 密钥失效：HTTP 200 + success:false + code 401 —— 只看状态码会误报成解析失败
+  mockZai(t, { code: 401, msg: "token expired or incorrect", success: false });
+  const result = await PROVIDERS["zai-cn"].query({ apiKey: "fake" });
+  assert.equal(result.state, "err");
+  assert.equal(result.error.code, "auth", "业务层 401 必须归到 auth，而不是 schema");
+  assert.match(result.error.message, /token expired/);
+});
+
+test("Z.ai reports other business failures as schema, never as auth", async (t) => {
+  mockZai(t, { code: 500, msg: "internal error", success: false });
+  const result = await PROVIDERS["zai-cn"].query({ apiKey: "fake" });
+  assert.equal(result.state, "err");
+  assert.equal(result.error.code, "schema");
+  assert.match(result.error.message, /internal error/);
+});
