@@ -24,7 +24,7 @@ const displayFixture = () => ({
 });
 const useDisplayFixture = (page) => page.route(/\/api\/dsh-token-quota\/state(?:\?.*)?$/, (route) => route.fulfill({ json: displayFixture() }));
 
-test("billing window renders in the strip, the popover and only DeepSeek's column", async ({ page }) => {
+test("the billing tier stays on the card; the popover drops it and the warning moves to settings", async ({ page }) => {
   const fixture = displayFixture();
   fixture.season = {
     peak: false, tier: "valley", kind: "holiday", valleyReason: "holiday",
@@ -41,23 +41,31 @@ test("billing window renders in the strip, the popover and only DeepSeek's colum
   await expect(strip).toHaveAttribute("data-qm-season", "valley");
   await expect(strip).toContainText("谷价");
   await expect(strip).toContainText("1d17h 后切换");
+  // 卡片只报档位：成因属于明细，不进这一行
+  await expect(strip).not.toContainText("法定节假日");
   // 圆点颜色必须真的区分峰谷，而不是只有文字
   const valleyColor = await strip.locator(".qm-season-dot").evaluate((node) => getComputedStyle(node).backgroundColor);
   expect(valleyColor).not.toBe("rgba(0, 0, 0, 0)");
 
   await page.locator("[data-qm-entry]").click();
-  const pop = page.locator(".qm-season-block");
-  await expect(pop).toContainText("法定节假日");
-  await expect(pop).toContainText("北京时间");
-  await expect(pop).toContainText("周二 15:52");
-  await expect(page.locator("[role=status]")).toContainText("2027");
-  await expect(page.locator('[data-qm-season-split="deepseek"]')).toContainText("高峰 1.2M（25%）");
+  // 浮卡不再重复时段块：档位与倒计时由常驻卡片承担
+  await expect(page.locator(".qm-season-block")).toHaveCount(0);
+  await expect(page.locator('[data-qm-season-split="deepseek"]')).toContainText("高峰 1.20M（25%）");
   await expect(page.locator('[data-qm-season-split="opencode"]')).toHaveCount(0);
 
   await page.locator(".qm-pop").getByRole("button", { name: "详情", exact: true }).click();
   const detail = page.getByRole("dialog", { name: "供应商限额明细", exact: true });
   await expect(detail.locator('[data-supplier="deepseek"] [data-qm-season-block]')).toHaveCount(1);
+  await expect(detail.locator('[data-supplier="deepseek"] [data-qm-season-block]')).toContainText("法定节假日");
   await expect(detail.locator('[data-supplier="opencode"] [data-qm-season-block]')).toHaveCount(0);
+
+  // 缺次年必须点名，且要点在能立刻粘贴覆盖表的地方
+  await detail.getByRole("button", { name: "设置", exact: true }).click();
+  const settings = page.getByRole("dialog", { name: "用量监控", exact: true });
+  await settings.getByRole("tab", { name: "设置", exact: true }).click();
+  await expect(settings.locator(".qm-season-warn")).toContainText("2027");
+  await page.keyboard.press("Escape");
+  await expect(settings).toHaveCount(0);
 
   // 峰价必须换成另一档文案与另一种颜色（否则「区分峰谷」只是说法）
   fixture.season = { ...fixture.season, peak: true, tier: "peak", kind: "weekday", valleyReason: null,
@@ -152,11 +160,19 @@ for (const [width, density] of [[240, "expanded"], [180, "compact"], [64, "rail"
     await page.goto(density === "rail" ? "/?rail&width=64" : `/?width=${width}`);
     const opener = page.locator("[data-qm-entry]");
     if (density !== "rail") await expect(page.locator("[data-qm-density]")).toHaveAttribute("data-qm-density", density);
-    if (density !== "rail") {
+    if (density === "expanded") {
+      // 第 2 行是周窗口（40%）的进度条，不是更紧的 5 小时窗口（63%）
+      const bar = opener.locator("[data-qm-bar]");
+      await expect(bar).toHaveAttribute("data-qm-window", "week");
+      await expect(opener.locator(".qm-bar-label")).toHaveText("周");
+      await expect(opener.locator(".qm-bar-pct")).toHaveText("40%");
+      const entryBox = await opener.boundingBox(), barBox = await bar.boundingBox();
+      expect(barBox.width).toBeGreaterThan(40);
+      expect(barBox.x + barBox.width).toBeLessThanOrEqual(entryBox.x + entryBox.width);
+    }
+    if (density === "compact") {
+      // 紧凑态放不下进度条：仍旧是主指标文字（最紧的 63%）
       await expect(opener.locator(".qm-primary")).toContainText("63%");
-      const entryBox = await opener.boundingBox(), metricBox = await opener.locator(".qm-primary").boundingBox();
-      expect(metricBox.width).toBeGreaterThan(40);
-      expect(metricBox.x + metricBox.width).toBeLessThanOrEqual(entryBox.x + entryBox.width);
     }
     await opener.click();
     const dialog = page.getByRole("dialog", { name: "用量", exact: true });
@@ -180,6 +196,56 @@ for (const [width, density] of [[240, "expanded"], [180, "compact"], [64, "rail"
     await expect(opener).toBeFocused();
   });
 }
+
+test("the card shows the plan name and a coloured weekly bar, and falls back to text without a window", async ({ page }) => {
+  const cardDirectory = resolve(".scratch/sidebar-card-v2");
+  const route = (fixture) => page.route(/\/api\/dsh-token-quota\/state(?:\?.*)?$/, (r) => r.fulfill({ json: fixture }));
+  const fixtures = displayFixture();
+  await route(fixtures);
+  await page.goto("/");
+
+  const opener = page.locator("[data-qm-entry]");
+  const bar = opener.locator("[data-qm-bar]");
+  await expect(opener.locator(".qm-plan")).toHaveText("OpenCode");
+  await expect(opener).not.toContainText("deepseek-v4.1-flash-with-a-very-long-model-name", "模型名不再进卡片");
+  await expect(opener.locator(".qm-dot")).toHaveCount(0, "卡片不再有阈值圆点");
+  await expect(bar).toHaveAttribute("data-qm-window", "week");
+  await expect(bar).toHaveAttribute("data-qm-tone", "ok");
+  await expect(opener.locator(".qm-bar-label")).toHaveText("周");
+  await expect(opener.locator(".qm-bar-pct")).toHaveText("40%");
+  await expect(opener.locator(".qm-bar-fill")).toHaveCSS("width", /\d+(\.\d+)?px/);
+  const okColor = await opener.locator(".qm-bar-fill").evaluate((node) => getComputedStyle(node).backgroundColor);
+  await mkdir(cardDirectory, { recursive: true });
+  await page.screenshot({ path: resolve(cardDirectory, "card-week-ok.png"), fullPage: true });
+
+  // 跨过 95% 阈值必须真的换成告警色（颜色融入条内，不再另有圆点）
+  const crit = displayFixture();
+  crit.suppliers.find((s) => s.id === "opencode").entries.find((e) => e.name === "周用量").pct = 96;
+  await route(crit);
+  await page.reload();
+  await expect(opener.locator("[data-qm-bar]")).toHaveAttribute("data-qm-tone", "crit");
+  const critColor = await opener.locator(".qm-bar-fill").evaluate((node) => getComputedStyle(node).backgroundColor);
+  expect(critColor).not.toBe(okColor);
+  await page.screenshot({ path: resolve(cardDirectory, "card-week-crit.png"), fullPage: true });
+
+  // 没有窗口（纯余额）时回落成主指标文字，绝不画一条 0% 的空条
+  const balance = displayFixture();
+  Object.assign(balance.suppliers.find((s) => s.id === "opencode"),
+    { entries: [{ kind: "bal", name: "CNY", remain: "¥41.99", pct: null }] });
+  await route(balance);
+  await page.reload();
+  await expect(opener.locator("[data-qm-bar]")).toHaveCount(0);
+  await expect(opener.locator(".qm-primary")).toContainText("¥41.99");
+  await page.screenshot({ path: resolve(cardDirectory, "card-balance-only.png"), fullPage: true });
+
+  // 浅色主题：条色必须来自主题变量，而不是深色模式下凑巧一样的硬编码
+  await route(crit);
+  await page.goto("/?light");
+  await expect(opener.locator("[data-qm-bar]")).toHaveAttribute("data-qm-tone", "crit");
+  const lightCrit = await opener.locator(".qm-bar-fill").evaluate((node) => getComputedStyle(node).backgroundColor);
+  expect(lightCrit).not.toBe(critColor);
+  await page.screenshot({ path: resolve(cardDirectory, "card-week-crit-light.png"), fullPage: true });
+});
 
 test("A2 sidebar preference persists and automatic narrow layout never overwrites it", async ({ page }) => {
   await page.goto("/");

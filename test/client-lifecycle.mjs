@@ -162,8 +162,9 @@ const textOf = (node) => {
   const walk = (c) => Array.isArray(c) ? c.map(walk).join("") : typeof c === "string" ? c : c?.children ? walk(c.children) : "";
   return walk(node.children ?? node);
 };
-const line2 = (tree) => {
-  const nodes = tree.root.findAllByProps({ className: "qm-l2" });
+/** 常驻卡片第 1 行 = plan 名（= 当前页最近调用的供应商名）。 */
+const planLine = (tree) => {
+  const nodes = tree.root.findAllByProps({ className: "qm-l1" });
   return nodes.length ? textOf(nodes[0]) : "";
 };
 /** 点击侧栏直接打开共用面板，返回其中的刷新按钮。 */
@@ -200,7 +201,7 @@ test("slow GETs still publish three rounds and never exceed one background GET i
       const call = net.lastGet();
       call.settled = true;
       await act(async () => { net.ok(call, stateFor(name)); });
-      assert.ok(line2(tree).includes(name), `第 ${name} 轮结果必须发布（实际 ${line2(tree)}）`);
+      assert.ok(planLine(tree).includes(name), `第 ${name} 轮结果必须发布（实际 ${planLine(tree)}）`);
       // 「完成后调度」：结果发布后才排下一次，且延迟为正常节奏 10s
       const poll = timers.find((t) => t.ms === POLL_MS);
       assert.ok(poll, `${name} 之后必须排下一次后台 GET`);
@@ -224,7 +225,7 @@ test("a GET that never finishes is cancelled at 30s and retried with backoff", a
   try {
     tree = await mount(Component, {});
     await act(async () => { net.ok(net.lastGet(), stateFor("first")); });
-    assert.ok(line2(tree).includes("first"), "首轮正常结果必须发布");
+    assert.ok(planLine(tree).includes("first"), "首轮正常结果必须发布");
 
     // 阶段一：下一次 GET 永远不结束 → 30s 上限到点必须取消它
     const nextPoll = timers.filter((t) => t.ms === POLL_MS).at(-1);
@@ -263,7 +264,7 @@ test("a GET that never finishes is cancelled at 30s and retried with backoff", a
     resetTimers();
     await act(async () => { finalRetry.fire(); });
     await act(async () => { net.ok(net.lastGet(), stateFor("recovered")); });
-    assert.ok(line2(tree).includes("recovered"), "退避后恢复成功必须发布");
+    assert.ok(planLine(tree).includes("recovered"), "退避后恢复成功必须发布");
     assert.ok(timers.find((t) => t.ms === POLL_MS), "成功后复位到 10s 正常节奏");
   } finally { await act(async () => { tree?.unmount(); }); }
 });
@@ -279,7 +280,7 @@ test("a page hidden at mount does not fetch until it becomes visible", async () 
     await act(async () => { setVisibility("visible"); });
     assert.equal(net.gets().length, 1, "恢复可见只启动一次查询");
     await act(async () => { net.ok(net.lastGet(), stateFor("resumed")); });
-    assert.ok(line2(tree).includes("resumed"));
+    assert.ok(planLine(tree).includes("resumed"));
   } finally { await act(async () => { tree?.unmount(); }); }
 });
 
@@ -304,15 +305,15 @@ for (const generation of ["legacy", "desktop"]) test(`${generation}: a late resp
     const callB = net.lastGet();
     assert.match(callB.url, /\?session=B/);
     await act(async () => { net.ok(callB, stateFor("B-page")); });
-    assert.ok(line2(tree).includes("B-page"));
+    assert.ok(planLine(tree).includes("B-page"));
     // A 的迟到响应即使结算也不得回写（代次校验兜住不可取消的路径）
     await act(async () => { net.ok(callA, stateFor("A-late")); });
-    assert.ok(!line2(tree).includes("A-late"), "A 的迟到响应不得进入 B 的显示");
+    assert.ok(!planLine(tree).includes("A-late"), "A 的迟到响应不得进入 B 的显示");
     await act(async () => { setSession("A"); });
-    assert.ok(!line2(tree).includes("A-late"), "A 的迟到响应不得覆盖 A 的缓存");
-    assert.ok(!line2(tree).includes("B-page"), "切回 A 不得残留 B 的供应商");
+    assert.ok(!planLine(tree).includes("A-late"), "A 的迟到响应不得覆盖 A 的缓存");
+    assert.ok(!planLine(tree).includes("B-page"), "切回 A 不得残留 B 的供应商");
     await act(async () => { net.ok(net.lastGet(), stateFor("A-fresh")); });
-    assert.ok(line2(tree).includes("A-fresh"));
+    assert.ok(planLine(tree).includes("A-fresh"));
   } finally { await act(async () => { tree?.unmount(); }); }
 });
 
@@ -338,7 +339,7 @@ test("desktop: empty, background-only and ambiguous views never request global u
     await act(async () => { net.ok(net.lastGet(), stateFor("active-a")); });
     await act(async () => { setSnapshot({ byId: {} }); });
     assert.match(net.lastGet().url, /\?session=$/);
-    assert.ok(!line2(tree).includes("active-a"));
+    assert.ok(!planLine(tree).includes("active-a"));
   } finally { await act(async () => { tree?.unmount(); }); }
 });
 
@@ -379,7 +380,7 @@ test("a hidden page stops background GETs; becoming visible starts exactly one",
     await act(async () => { repoll[0].fire(); });
     assert.equal(net.gets().length, hiddenAt + 2, "恢复后的下一次查询只由正常节奏触发一次");
     await act(async () => { net.ok(net.lastGet(), stateFor("back")); });
-    assert.ok(line2(tree).includes("back"));
+    assert.ok(planLine(tree).includes("back"));
   } finally { await act(async () => { tree?.unmount(); }); }
 });
 
@@ -430,7 +431,7 @@ test("manual refresh slower than the poll interval still publishes and resumes p
     assert.equal(net.gets().length, getsBefore, "手动刷新期间不得并发后台 GET");
     // 手动刷新在 10s 之后才回来：仍然必须发布结果
     await act(async () => { net.ok(refresh, stateFor("manual")); });
-    assert.ok(line2(tree).includes("manual"), "超过轮询周期的手动刷新结果仍必须发布");
+    assert.ok(planLine(tree).includes("manual"), "超过轮询周期的手动刷新结果仍必须发布");
     assert.ok(timers.find((t) => t.ms === POLL_MS), "刷新完成后必须恢复后台轮询");
   } finally { await act(async () => { tree?.unmount(); }); }
 });
@@ -452,7 +453,7 @@ test("duplicate refresh clicks merge into one POST and keep one background GET a
     await flushPending(); // cycle 是异步的：让它在断言前真正发起 GET
     assert.equal(net.gets().filter((c) => !c.settled && !c.aborted).length, 1, "恢复后仍最多一个在途 GET");
     await act(async () => { net.ok(net.lastGet(), stateFor("after-refresh")); });
-    assert.ok(line2(tree).includes("after-refresh"));
+    assert.ok(planLine(tree).includes("after-refresh"));
   } finally { await act(async () => { tree?.unmount(); }); }
 });
 
@@ -469,7 +470,7 @@ test("sidebar and native settings share one session subscription and polling loo
     assert.equal(host.sessionListenerCount(), 1, "全部视图共享一个当前会话订阅");
     assert.equal(host.documentListeners.visibilitychange.length, 1, "全部视图共享一个可见性监听");
     await act(async () => { net.ok(net.lastGet(), stateFor("shared-data")); });
-    assert.ok(line2(footer).includes("shared-data"));
+    assert.ok(planLine(footer).includes("shared-data"));
     assert.equal(host.pending().filter((timer) => timer.ms === POLL_MS).length, 1);
     await act(async () => { footer.unmount(); });
     footer = null;
@@ -507,7 +508,7 @@ test("plugin disposal stops shared polling even before mounted views are removed
     assert.equal(host.sessionListenerCount(), 0);
     assert.equal(host.documentListeners.visibilitychange.length, 0);
     await act(async () => { net.ok(inflight, stateFor("disposed-result")); });
-    assert.ok(!line2(footer).includes("disposed-result"), "插件卸载后的迟到响应不得发布");
+    assert.ok(!planLine(footer).includes("disposed-result"), "插件卸载后的迟到响应不得发布");
     await act(async () => { host.setVisibility("visible"); host.setSession("later"); });
     assert.equal(net.gets().length, 1);
   } finally { await act(async () => { footer?.unmount(); page?.unmount(); }); }

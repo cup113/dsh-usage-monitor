@@ -2,9 +2,17 @@
 
 DeepSeek Harness 用量监控插件。查看当前会话对应供应商的周期限额、账户余额、报告费用和今日 Token 用量，支持 Windows 桌面端与 Web 界面。
 
-当前版本：**v2.0.5**。要求 **DSH ≥ 0.1.7-rc.2**；真实桌面及 Web 验收环境为 **DSH 0.2.0-rc.2**。
+当前版本：**v2.1.0**。要求 **DSH ≥ 0.1.7-rc.2**；真实桌面及 Web 验收环境为 **DSH 0.2.0-rc.2**。
 
 [GitHub 下载](https://github.com/shxtmaker/dsh-token-quota/releases/latest) · [问题反馈](https://github.com/shxtmaker/dsh-token-quota/issues)
+
+## v2.1.0 更新
+
+- 新增 DeepSeek 峰谷计费时段：侧栏常显当前档位（峰价／谷价）与「下次切换」，浮卡与明细给出成因（法定节假日／周末）和北京时间，刷新历史新增「时段」列。时段判定在宿主侧完成，客户端只消费结论。
+- 新增今日用量时段拆分：DeepSeek 的当日用量按小时桶推导为高峰／空闲／未标记三段并给出占比，其他供应商不串用该口径。
+- 新增节假日覆盖表：设置页可粘贴 `YYYY-MM-DD` 清单替换内置表；缺次年安排时在同一处点名，不再静默把工作日假期当峰价。
+- 常驻卡片重新排版为四行：plan 名（不再显示模型名）、周窗口已用百分比进度条、今日 Token 用量与该窗口重置倒计时、计费时段档位。阈值颜色融入进度条，取消阈值圆点与插件标题行。
+- Token 量级统一 3 位有效数字（`1.32M`、`12.0K`、`999.6K → 1.00M`），不再固定一位小数；用量浮卡不再重复计费时段块。
 
 ## v2.0.5 更新
 
@@ -46,7 +54,7 @@ DeepSeek Harness 用量监控插件。查看当前会话对应供应商的周期
 
 ## 安装
 
-从 Release 下载 **`dsh-token-quota-2.0.5.tgz`**。该文件是插件安装包，`dsh-token-quota-2.0.5-source.tar.gz` 是源码包。插件包不包含 DeepSeek Harness；首次安装可能需要联网下载依赖。
+从 Release 下载 **`dsh-token-quota-2.1.0.tgz`**。该文件是插件安装包，`dsh-token-quota-2.1.0-source.tar.gz` 是源码包。插件包不包含 DeepSeek Harness；首次安装可能需要联网下载依赖。
 
 ### Windows 桌面端
 
@@ -54,7 +62,7 @@ DeepSeek Harness 用量监控插件。查看当前会话对应供应商的周期
 
 ```powershell
 $desktopCli = 'D:\AI\DeepSeek- Harness\resources\runtime\cli\bin\dsh.cmd'
-$archivePath = (Resolve-Path './dsh-token-quota-2.0.5.tgz').Path
+$archivePath = (Resolve-Path './dsh-token-quota-2.1.0.tgz').Path
 & $desktopCli plugin --profile desktop add "file:$archivePath"
 & $desktopCli plugin --profile desktop list --depth 0
 ```
@@ -68,14 +76,14 @@ $archivePath = (Resolve-Path './dsh-token-quota-2.0.5.tgz').Path
 Linux / macOS：
 
 ```bash
-dsh plugin --profile web add "file:$(pwd)/dsh-token-quota-2.0.5.tgz"
+dsh plugin --profile web add "file:$(pwd)/dsh-token-quota-2.1.0.tgz"
 dsh --profile web
 ```
 
 Windows PowerShell：
 
 ```powershell
-$archivePath = (Resolve-Path './dsh-token-quota-2.0.5.tgz').Path
+$archivePath = (Resolve-Path './dsh-token-quota-2.1.0.tgz').Path
 dsh plugin --profile web add "file:$archivePath"
 dsh --profile web
 ```
@@ -115,7 +123,7 @@ dsh plugin --profile web add "link:$pluginDirectory"
 
 ## 侧栏与面板
 
-完整侧栏显示当前会话最近调用的供应商与模型、主指标、对应窗口的重置时间及今日用量。紧凑侧栏保留供应商与主指标。独立箭头切换显示状态，偏好保存在当前浏览器；宽度不足时自动使用紧凑显示，恢复宽度后恢复用户选择。
+完整侧栏分四行：**plan 名**（供应商显示名，不显示模型名）、**周窗口已用百分比进度条**、**今日 Token 用量与该窗口的重置倒计时**、以及常显的**计费时段档位**（峰价／谷价与下次切换）。阈值颜色直接落在进度条上：绿 < 警告 < 黄 < 临界 < 红；没有周窗口时改用已用比例最高的有效窗口，只有余额或报告费用时保留文字而不画条；旧数据与已停用保持中性色。Token 数量一律 3 位有效数字（如 `1.32M`、`12.0K`）。紧凑侧栏保留供应商名与主指标文字。独立箭头切换显示状态，偏好保存在当前浏览器；宽度不足时自动使用紧凑显示，恢复宽度后恢复用户选择。
 
 单击侧栏打开用量浮卡，查看已添加供应商的主指标与查询状态。浮卡贴在侧栏卡片上方，窗口变化时自动调整位置；再次点击侧栏、按 Esc、点击外部或“关闭”均可收起。
 
@@ -125,14 +133,15 @@ dsh plugin --profile web add "link:$pluginDirectory"
 | --- | --- |
 | 概览 | 今日用量、已添加与需关注数量、筛选、供应商指标和默认收起的刷新历史。 |
 | 供应商 | 已添加目录、启用开关、配置入口、重新扫描，以及默认收起的可添加目录。 |
-| 设置 | 查询间隔、用量保留期和侧栏显示偏好。 |
+| 设置 | 查询间隔、用量保留期、节假日覆盖表（缺次年时同处点名告警）和侧栏显示偏好。 |
 
 查询间隔默认 **60 秒**，范围 **10–3600 秒**；用量保留期默认 **7 天**，范围 **1–90 天**。后台刷新及页签切换保留编辑草稿；插件内部返回、取消或关闭时，会提示放弃未保存修改。宿主直接离开原生设置分区会销毁面板，无法保留未保存草稿。
 
 ## 数据含义
 
 - **今日用量**：当前供应商通过 Harness 产生的当日 Token 用量，按宿主本地日统计。独立 CLI 或其他应用中的调用不计入。
-- **周期限额**：百分比表示已用比例；侧栏主指标选取已用比例最高的有效窗口，重置时间对应同一窗口。
+- **周期限额**：百分比表示已用比例；常驻卡片第 2 行固定取周窗口，没有周窗口时取已用比例最高的有效窗口，重置时间始终对应同一个窗口；详情、概览与紧凑侧栏的主指标仍取已用比例最高的有效窗口。
+- **计费时段**：DeepSeek 账号级的峰谷计价（按北京时间判定）是账户事实，因此常显在卡片最后一行；当日用量是否分属峰谷只在明细弹窗里按供应商给出。缺次年节假日安排时会在“设置”页的节假日覆盖表旁点名。
 - **余额**：逐币种显示，不换算、不相加。
 - **报告费用与报告用量**：保留供应商报告的周期，与本地今日 Token 统计分别展示。
 - **未知与零值**：缺失或未知显示 `—`，真实零值显示 `0`；当前会话尚无调用时显示「暂无调用」。
@@ -192,8 +201,8 @@ npm pack
 真实宿主验收使用独立数据目录与 profile，不修改日常配置：
 
 ```powershell
-npm run test:desktop -- --app 'C:/path/DeepSeek Harness.exe' --package 'C:/path/dsh-token-quota-2.0.5.tgz' --output '.scratch/desktop-v2-check'
-node scripts/verify-web.mjs --app 'C:/path/DeepSeek Harness.exe' --package 'C:/path/dsh-token-quota-2.0.5.tgz' --output '.scratch/web-v2-check'
+npm run test:desktop -- --app 'C:/path/DeepSeek Harness.exe' --package 'C:/path/dsh-token-quota-2.1.0.tgz' --output '.scratch/desktop-v2-check'
+node scripts/verify-web.mjs --app 'C:/path/DeepSeek Harness.exe' --package 'C:/path/dsh-token-quota-2.1.0.tgz' --output '.scratch/web-v2-check'
 npm run test:lifecycle -- --app 'C:/path/DeepSeek Harness.exe' --output '.scratch/lifecycle-v2-check'
 ```
 

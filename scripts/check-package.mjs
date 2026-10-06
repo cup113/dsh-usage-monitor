@@ -27,7 +27,7 @@ for (const required of [pkg.main, pkg.exports["./client"], pkg.dsh.bundle.patch,
   "lib/routes.js", "lib/storage.js", "lib/scheduler.js", "lib/usage.js", "lib/detect.js",
   "lib/providers.js", "lib/scan-coordinator.js", "lib/legacy-config.js",
   // 峰谷时段判定：缺失会让安装版在 require 阶段直接抛 ERR_MODULE_NOT_FOUND
-  "lib/season.js", "README.md"]) {
+  "lib/season.js", "README.md", "CHANGELOG.md"]) {
   assert.ok(paths.has(required.replace(/^\.\//, "")), `产物缺少 ${required}`);
 }
 assert.equal(manifest.name, "dsh-token-quota");
