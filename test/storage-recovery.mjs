@@ -20,18 +20,22 @@ test("shared instances preserve usage when an idle instance exits", (t) => {
   assert.equal(loadUsageFile(file).deepseek[hourKeyOf()], 100);
 });
 test("another process's updates are merged with the local delta", (t) => {
-  const { file } = fixture(t);
+  const { root, file } = fixture(t);
   saveUsageFile(file, { deepseek: { [hourKeyOf()]: 100 } });
   const a = acquireUsageStore(file);
   a.store.buckets.deepseek[hourKeyOf()] += 20; a.markDirty();
+  // 刻意不用 spawnSync 的管道捕获：受限沙箱里捕获子进程输出会被拒绝（spawn EPERM），
+  // 这是记录在案的边界。子进程改用 stdio:'ignore' + 事后读结果文件，断言内容不变。
   const child = spawnSync(process.execPath, ["--input-type=module", "-e", `
+    import { writeFileSync } from "node:fs";
     import { acquireUsageStore, hourKeyOf } from ${JSON.stringify(new URL("../lib/storage.js", import.meta.url).href)};
     const store = acquireUsageStore(process.argv[1]);
     store.store.buckets.deepseek[hourKeyOf()] += 30;
     store.markDirty();
-    if (!store.release().ok) process.exit(1);
-  `, file], { encoding: "utf8" });
-  assert.equal(child.status, 0, child.stderr);
+    writeFileSync(process.argv[2], store.release().ok ? "ok" : "failed");
+  `, file, join(root, "child-result.txt")], { stdio: "ignore" });
+  assert.equal(child.status, 0, "子进程本身应正常退出");
+  assert.equal(readFileSync(join(root, "child-result.txt"), "utf8"), "ok", "子进程写入应成功");
   assert.equal(a.release().ok, true);
   assert.equal(loadUsageFile(file).deepseek[hourKeyOf()], 150);
 });

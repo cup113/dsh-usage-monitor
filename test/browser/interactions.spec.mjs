@@ -24,8 +24,51 @@ const displayFixture = () => ({
 });
 const useDisplayFixture = (page) => page.route(/\/api\/dsh-token-quota\/state(?:\?.*)?$/, (route) => route.fulfill({ json: displayFixture() }));
 
-test("real provider parsing keeps unknown Command Code resets empty and valid OpenCode countdowns", async ({ page }) => {
-  const resetAt = Date.now() + 5 * 3600_000;
+test("billing window renders in the strip, the popover and only DeepSeek's column", async ({ page }) => {
+  const fixture = displayFixture();
+  fixture.season = {
+    peak: false, tier: "valley", kind: "holiday", valleyReason: "holiday",
+    flipAt: Date.now() + (41 * 3600 + 12 * 60) * 1000,
+    beijing: { weekday: "周二", clock: "15:52", dayKey: "2026-10-06" },
+    warning: "节假日表缺少 2027 年的安排，工作日假期会被误判为峰价。",
+  };
+  // 只有 DeepSeek 拿得到拆分：峰谷价是它的专属规则
+  fixture.suppliers.find((s) => s.id === "deepseek").seasonSplit = { peakTokens: 1_200_000, valleyTokens: 3_600_000, unknownTokens: 0 };
+  await page.route(/\/api\/dsh-token-quota\/state(?:\?.*)?$/, (route) => route.fulfill({ json: fixture }));
+  await page.goto("/");
+
+  const strip = page.locator("[data-qm-season]");
+  await expect(strip).toHaveAttribute("data-qm-season", "valley");
+  await expect(strip).toContainText("谷价");
+  await expect(strip).toContainText("1d17h 后切换");
+  // 圆点颜色必须真的区分峰谷，而不是只有文字
+  const valleyColor = await strip.locator(".qm-season-dot").evaluate((node) => getComputedStyle(node).backgroundColor);
+  expect(valleyColor).not.toBe("rgba(0, 0, 0, 0)");
+
+  await page.locator("[data-qm-entry]").click();
+  const pop = page.locator(".qm-season-block");
+  await expect(pop).toContainText("法定节假日");
+  await expect(pop).toContainText("北京时间");
+  await expect(pop).toContainText("周二 15:52");
+  await expect(page.locator("[role=status]")).toContainText("2027");
+  await expect(page.locator('[data-qm-season-split="deepseek"]')).toContainText("高峰 1.2M（25%）");
+  await expect(page.locator('[data-qm-season-split="opencode"]')).toHaveCount(0);
+
+  await page.locator(".qm-pop").getByRole("button", { name: "详情", exact: true }).click();
+  const detail = page.getByRole("dialog", { name: "供应商限额明细", exact: true });
+  await expect(detail.locator('[data-supplier="deepseek"] [data-qm-season-block]')).toHaveCount(1);
+  await expect(detail.locator('[data-supplier="opencode"] [data-qm-season-block]')).toHaveCount(0);
+
+  // 峰价必须换成另一档文案与另一种颜色（否则「区分峰谷」只是说法）
+  fixture.season = { ...fixture.season, peak: true, tier: "peak", kind: "weekday", valleyReason: null,
+    beijing: { weekday: "周二", clock: "10:00", dayKey: "2026-10-13" } };
+  await page.reload();
+  await expect(page.locator("[data-qm-season]")).toContainText("峰价");
+  const peakColor = await page.locator("[data-qm-season] .qm-season-dot").evaluate((node) => getComputedStyle(node).backgroundColor);
+  expect(peakColor).not.toBe(valleyColor);
+});
+
+test("real provider parsing keeps unknown Command Code resets empty and valid OpenCode countdowns", async ({ page }) => {  const resetAt = Date.now() + 5 * 3600_000;
   const previousFetch = globalThis.fetch;
   let command, opencode;
   try {
@@ -84,9 +127,11 @@ test("restored details show supplier columns and a bounded history table before 
   await page.keyboard.press("Tab");
   await expect(detail.locator(".qm-history summary")).toBeFocused();
   await page.keyboard.press("Enter");
-  await expect(detail.getByRole("columnheader")).toHaveText(["时间", "供应商", "结果", "主指标", "备注"]);
+  await expect(detail.getByRole("columnheader")).toHaveText(["时间", "供应商", "时段", "结果", "主指标", "备注"]);
   await expect(detail.locator("tbody tr")).toHaveCount(50);
   await expect(detail.locator("tbody tr").first()).toContainText("fixture timeout");
+  // 这一页的夹具没有 season，历史记录也不带 tier：必须显示「—」而不是编造一个时段
+  await expect(detail.locator("tbody tr").first().locator("td").nth(2)).toHaveText("—");
   await mkdir(visualDirectory, { recursive: true });
   await page.screenshot({ path: resolve(visualDirectory, "restored-details.png"), fullPage: true });
   await detail.getByRole("button", { name: "设置", exact: true }).click();
