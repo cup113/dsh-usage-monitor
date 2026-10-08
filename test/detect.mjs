@@ -89,7 +89,8 @@ const p1 = r1.patch.suppliers;
 assert.equal(p1.deepseek.enabled, true);
 assert.equal(p1.deepseek.baseUrl, "https://api.deepseek.com/v1", "官方白名单路径内的 Base URL 跟随 DSH");
 assert.equal(p1.deepseek.autoSource, "llm-deepseek");
-assert.equal(p1.deepseek.apiKey, "sk-DEEPSEEK_API_KEY", "API Key 自动填入（拷贝 DSH 密钥本体）");
+assert.equal("apiKey" in p1.deepseek, false, "有引用名时不拷贝密钥本体");
+assert.equal(p1.deepseek.apiKeyEnv, "DEEPSEEK_API_KEY", "自动填入只写凭据引用");
 assert.equal(p1.opencode.enabled, true);
 assert.equal(p1.opencode.autoSource, "llm-pi-ai");
 assert.equal(p1.opencode.autoApiKeyEnv, "OPENCODE_GO_API_KEY");
@@ -97,12 +98,18 @@ assert.equal("baseUrl" in p1.opencode, false, "DSH 侧无 baseURL 时保留插�
 assert.equal(p1.commandcode.enabled, true);
 assert.equal(p1.commandcode.baseUrl, "https://api.commandcode.ai/provider/v1", "兼容来源允许带网关路径的 HTTPS 地址");
 assert.equal(p1.openrouter.enabled, true);
-assert.equal(p1.openrouter.apiKey, "sk-OPENROUTER_API_KEY");
+assert.equal(p1.openrouter.apiKeyEnv, "OPENROUTER_API_KEY", "每个已接入供应商都只写引用");
 assert.equal(p1["moonshot-cn"].baseUrl, "https://api.moonshot.cn/v1");
 assert.equal(p1.zai.baseUrl, "https://api.z.ai/api/anthropic");
 assert.equal("openai-org" in p1, false, "Admin 供应商绝不因普通聊天 Key 自动填入");
 assert.ok(r1.unfilled.some((u) => u.route === "openai" && u.detail && u.detail.includes("Admin Key")), "openai 应记 unfilled 提示需要 Admin Key");
 console.log("✓ detect：目录+凭据解析、官方优先去重、地域/凭据类别映射、Base URL 采纳规则、Admin 不套用");
+
+// 无引用名（路由未声明 apiKeyEnv）→ 才拷贝密钥本体
+const noEnvName = [{ ...bySupplier.get("opencode"), apiKeyEnv: null }];
+const rFallback = autoFillPatch(noEnvName, () => ({}), BASE_URL_DEFAULTS);
+assert.equal(rFallback.patch.suppliers.opencode.apiKey, "sk-OPENCODE_GO_API_KEY", "无引用名时拷贝本体");
+assert.equal("apiKeyEnv" in rFallback.patch.suppliers.opencode, false);
 
 // 手动接管：已有 apiKey → 不动
 const rManual = autoFillPatch(detected1, () => ({ apiKey: "sk-manual" }), BASE_URL_DEFAULTS);
@@ -149,6 +156,7 @@ const noKey = [{ ...sup2.get("deepseek"), route: "deepseek", ns: "llm-pi-ai", pa
 const r3 = autoFillPatch(noKey, () => ({}), BASE_URL_DEFAULTS);
 assert.equal(r3.patch.suppliers.deepseek.enabled, undefined, "无密钥不自动启用");
 assert.equal("apiKey" in r3.patch.suppliers.deepseek, false, "无密钥不复制");
+assert.equal("apiKeyEnv" in r3.patch.suppliers.deepseek, false, "解析不到引用时不写引用");
 assert.equal(r3.patch.suppliers.deepseek.autoSource, "llm-pi-ai");
 assert.equal(r3.unfilled[0].reason, "no-key");
 console.log("✓ autoFillPatch：无密钥 → 只填引用、不启用，记 unfilled.no-key");

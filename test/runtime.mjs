@@ -145,8 +145,10 @@ test("season rides on /state as a host verdict; the holiday override round-trips
   assert.equal(overridden.season.warning, null, "用户自己贴了覆盖表就不再提示缺次年");
   assert.deepEqual(harness.settings.writes.at(-1).patch.holidays, [today]);
   if (!builtinSaysHoliday && !builtinSaysWeekend) {
-    assert.equal(first.season.peak, true, "对照组：同一个工作日在覆盖前是峰价");
-    assert.equal(first.season.kind, "weekday");
+    // 对照组不能假设「跑到这句时正好落在峰价窗口」（北京 19:00 跑必然失败）：
+    // 改成同一瞬间的内置判定必须与 /state 一致，真处在峰价时再顺带钉住成因。
+    assert.equal(first.season.peak, season.isPeak(now), "对照组：内置表对同一瞬间的峰谷结论必须与 /state 一致");
+    if (first.season.peak) assert.equal(first.season.kind, "weekday");
   }
 
   // 3) 坏日期在写入前被拒绝，且不能污染已保存的配置
@@ -191,4 +193,45 @@ test("today's split is attributed per hour and only DeepSeek gets one", async (t
   assert.equal(state.suppliers.find((s) => s.id === "openrouter").seasonSplit, null, "非 DeepSeek 供应商不挂拆分");
   // 今天的桶落在今天：断言两个各自独立计算的数字确实对得上，而不是各算各的
   assert.equal(split.unknownTokens, 0, "今天的桶晚于峰谷定价实施日，不该落进未知段");
+});
+
+test("凭据引用在宿主侧解析，密钥本体不进配置文档", async (t) => {
+  const previousHome = process.env.DSH_HOME;
+  const home = mkdtempSync(join(tmpdir(), "qm-key-ref-"));
+  process.env.DSH_HOME = home;
+  const seen = [];
+  t.mock.method(PROVIDERS.deepseek, "query", async (cfg) => {
+    seen.push(cfg.apiKey);
+    return { state: "ok", entries: [], headline: { kind: "amt", amt: "¥0" } };
+  });
+  const harness = createCtx({
+    schema: Config,
+    config: { suppliers: { deepseek: { enabled: true, apiKeyEnv: "DEEPSEEK_API_KEY" } } },
+    credentials: {
+      resolve: async (ref) => (ref === "DEEPSEEK_API_KEY" ? { value: "ref-key", source: "credentials" } : null),
+    },
+  });
+  const dispose = apply(harness.ctx, harness.configRef);
+  t.after(() => {
+    dispose();
+    if (previousHome === undefined) delete process.env.DSH_HOME;
+    else process.env.DSH_HOME = previousHome;
+    rmSync(home, { recursive: true, force: true });
+  });
+  const supplier = (payload) => payload.suppliers.find((s) => s.id === "deepseek");
+
+  await harness.call("/api/dsh-token-quota/refresh", {});
+  assert.equal(seen.at(-1), "ref-key", "配置里的凭据引用在宿主侧解析后用于查询");
+  assert.equal(seen.includes(""), false, "引用解析完成前不得用空密钥打供应商接口");
+  const byRef = supplier(await harness.call("/api/dsh-token-quota/state"));
+  assert.equal(byRef.apiKeyEnv, "DEEPSEEK_API_KEY");
+  assert.equal(byRef.keyRefResolved, true);
+  assert.equal(byRef.keyRefSource, "credentials");
+  assert.equal(byRef.keySet, false, "配置文档里没有密钥本体");
+  assert.equal(byRef.added, true, "只有引用也算已添加");
+
+  seen.length = 0;
+  await harness.call("/api/dsh-token-quota/settings", { suppliers: { deepseek: { apiKey: "literal-key" } } });
+  await harness.call("/api/dsh-token-quota/refresh", {});
+  assert.equal(seen.at(-1), "literal-key", "配置里的密钥本体优先于引用");
 });

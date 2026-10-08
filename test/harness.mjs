@@ -82,8 +82,9 @@ export function createSettingsMock({ ns = "dsh-token-quota", base = {}, user = {
  * 同时注册 volatile 更新的广播：settings.update 之后调用 loader/volatile-update，
  * 与 harness 的 loader 行为一致（不重挂插件，只更新引用并发事件）。
  */
-export function createCtx({ config = {}, user, schema, foreign = [], inactive = false, logger } = {}) {
+export function createCtx({ config = {}, user, schema, foreign = [], inactive = false, logger, credentials } = {}) {
   const settings = createSettingsMock({ base: config, user, schema, foreign, inactive });
+  const credentialService = credentials ?? { resolve: async () => null };
   const routes = new Map();
   const events = new Map();
   const ctx = {
@@ -102,7 +103,7 @@ export function createCtx({ config = {}, user, schema, foreign = [], inactive = 
         else events.delete(name);
       };
     },
-    get: (name) => (name === "settings" ? ctx.settings : name === "credentials" ? { resolve: async () => null } : undefined),
+    get: (name) => (name === "settings" ? ctx.settings : name === "credentials" ? credentialService : undefined),
     logger: logger ?? { info() {}, warn() {}, error() {} },
   };
   settings.onUpdate(() => {

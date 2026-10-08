@@ -132,16 +132,18 @@ assert.equal(resolved.suppliers["moonshot-cn"].enabled, true, "moonshotai-cn →
 assert.equal(resolved.suppliers["moonshot-cn"].baseUrl, "https://api.moonshot.cn/v1");
 assert.equal(resolved.suppliers["zai-cn"].enabled, true, "zai-coding-cn → 自动启用 zai-cn（智谱国内 Coding Plan）");
 assert.equal(resolved.suppliers["openai-org"], undefined, "OpenAI 普通聊天 Key 绝不自动启用 openai-org（需 Admin Key）");
-assert.equal(resolved.suppliers.deepseek.apiKey, "file-sk-DEEPSEEK_API_KEY", "API Key 本体自动填入插件 settings");
-assert.equal(resolved.suppliers.opencode.apiKey, "file-sk-OPENCODE_GO_API_KEY");
-assert.equal(resolved.suppliers.commandcode.apiKey, "file-sk-COMMANDCODE_GOAT_API_KEY");
-assert.equal(resolved.suppliers.openrouter.apiKey, "file-sk-OPENROUTER_API_KEY");
-assert.equal(resolved.suppliers["moonshot-cn"].apiKey, "file-sk-MOONSHOT_CN_API_KEY");
-assert.equal(resolved.suppliers["zai-cn"].apiKey, "file-sk-ZAI_CODING_CN_API_KEY");
+assert.equal(resolved.suppliers.deepseek.apiKeyEnv, "DEEPSEEK_API_KEY", "凭据引用自动填入插件 settings（不再拷贝密钥本体）");
+assert.equal(resolved.suppliers.opencode.apiKeyEnv, "OPENCODE_GO_API_KEY");
+assert.equal(resolved.suppliers.commandcode.apiKeyEnv, "COMMANDCODE_GOAT_API_KEY");
+assert.equal(resolved.suppliers.openrouter.apiKeyEnv, "OPENROUTER_API_KEY");
+assert.equal(resolved.suppliers["moonshot-cn"].apiKeyEnv, "MOONSHOT_CN_API_KEY");
+assert.equal(resolved.suppliers["zai-cn"].apiKeyEnv, "ZAI_CODING_CN_API_KEY");
+assert.equal(resolved.suppliers.deepseek.apiKey, "", "密钥本体不落进插件配置");
+assert.equal("apiKey" in resolved.suppliers.openrouter, false, "密钥本体不落进插件配置（原本没有该字段的供应商也不该被新建）");
 const dsCall = calls.find((c) => c.url.includes("user/balance"));
 assert.ok(dsCall, "自动填入后应发起余额查询");
-assert.equal(dsCall.auth, "Bearer file-sk-DEEPSEEK_API_KEY", "取数使用的是自动填入的密钥（与 DSH 凭据库一致）");
-console.log("✓ 自动探测：6 个普通 Key 供应商自动启用 + 官方 baseUrl + API Key 自动填入；Admin 不套用");
+assert.equal(dsCall.auth, "Bearer file-sk-DEEPSEEK_API_KEY", "取数使用的是引用解析出的密钥（与 DSH 凭据库一致）");
+console.log("✓ 自动探测：6 个普通 Key 供应商自动启用 + 官方 baseUrl + 凭据引用自动填入（密钥本体留宿主内存）；Admin 不套用");
 
 // ---- 路由表 ----
 const paths = ctx._routes.map((r) => r.path);
@@ -171,18 +173,24 @@ assert.equal(ds.state, "ok");
 assert.equal(ds.headline.amt, "¥66.60");
 // 只有真实 session/event 才置位 channelAlive：adapters-updated 之后仍按启用清单兜底
 assert.equal(ds.current, true, "冷启动未调用时小组件应兜底显示启用供应商");
-assert.equal(ds.keySet, true, "API Key 已自动填入插件 settings");
+assert.equal(ds.keySet, false, "密钥本体不落进插件 settings");
+assert.equal(ds.apiKeyEnv, "DEEPSEEK_API_KEY", "自动填入的是凭据引用");
+assert.equal(ds.keyRefResolved, true, "引用在宿主侧解析成功");
+assert.equal(ds.keyRefSource, "file", "解析来源：DSH 凭据库");
 assert.equal(ds.envKeySet, true);
 assert.equal(ds.autoDetected, true);
 assert.equal(ds.autoKeySource, "file");
 const oc = s1.payload.suppliers.find((s) => s.id === "opencode");
 assert.equal(oc.autoDetected, true);
-assert.equal(oc.keySet, true);
+assert.equal(oc.keySet, false, "密钥本体不落进插件 settings");
+assert.equal(oc.apiKeyEnv, "OPENCODE_GO_API_KEY");
+assert.equal(oc.keyRefResolved, true);
 assert.equal(oc.envKeySet, true);
 assert.equal(oc.state, "err");
 const cc = s1.payload.suppliers.find((s) => s.id === "commandcode");
 assert.equal(cc.autoDetected, true);
-assert.equal(cc.keySet, true);
+assert.equal(cc.keySet, false, "密钥本体不落进插件 settings");
+assert.equal(cc.apiKeyEnv, "COMMANDCODE_GOAT_API_KEY");
 assert.equal(cc.autoEnvName, "COMMANDCODE_GOAT_API_KEY");
 assert.equal(cc.state, "err");
 assert.deepEqual(s1.payload.detectedUnmapped.map((u) => u.route), ["openai"], "pi-ai 普通聊天 Key（openai）应进入 detectedUnmapped 并提示需 Admin Key");
@@ -275,7 +283,8 @@ console.log("✓ 用户显式关闭 → 自动探测尊重关闭");
 // ---- settings 热更新 ----
 await call("/api/dsh-token-quota/settings", { intervalSeconds: 30, suppliers: { commandcode: { enabled: true, apiKey: "sk-cc" }, deepseek: { enabled: true, apiKey: "" } } });
 assert.equal(resolved.intervalSeconds, 30);
-assert.equal(resolved.suppliers.deepseek.apiKey, "file-sk-DEEPSEEK_API_KEY", "空白密钥补丁保留已存凭据");
+assert.equal(resolved.suppliers.deepseek.apiKeyEnv, "DEEPSEEK_API_KEY", "空白密钥补丁保留已存凭据引用");
+assert.equal(resolved.suppliers.deepseek.apiKey, "", "空白密钥补丁不得把密钥本体写进配置");
 assert.equal(resolved.suppliers.commandcode.enabled, true);
 const s3 = await call("/api/dsh-token-quota/state");
 assert.equal(s3.payload.poll.intervalSeconds, 30);
@@ -309,13 +318,31 @@ await call("/api/dsh-token-quota/settings", { suppliers: { opencode: { apiKey: "
 const keepRescan = await call("/api/dsh-token-quota/rescan");
 assert.equal(resolved.suppliers.opencode.apiKey, "sk-user-typed", "自动填入不得覆盖用户手动填写的密钥");
 assert.equal(keepRescan.payload.suppliers.find((s) => s.id === "opencode").keySet, true);
-console.log("✓ 用户手填密钥：后续扫描不覆盖（首次复制契约）");
+console.log("✓ 用户手填密钥：后续扫描不覆盖（手动接管契约）");
+
+// ---- 用户手填凭据引用同样是手动接管：后续扫描不得把它改回 DSH 路由名 ----
+await call("/api/dsh-token-quota/settings", { suppliers: { deepseek: { apiKeyEnv: "MY_OWN_DEEPSEEK_KEY" } } });
+await call("/api/dsh-token-quota/rescan");
+assert.equal(resolved.suppliers.deepseek.apiKeyEnv, "MY_OWN_DEEPSEEK_KEY",
+  "自动填入不得覆盖用户手填的凭据引用（DSH 路由名是 DEEPSEEK_API_KEY）");
+assert.equal(resolved.suppliers.deepseek.apiKey, "", "手填引用也不把密钥本体带进配置");
+const sRef = await call("/api/dsh-token-quota/state");
+const dsRef = sRef.payload.suppliers.find((s) => s.id === "deepseek");
+assert.equal(dsRef.keyRefResolved, true, "手填的引用照样在宿主侧解析");
+assert.equal(dsRef.keySet, false, "解析结果只留在宿主内存，不进配置");
+console.log("✓ 用户手填凭据引用：后续扫描不覆盖，且仍被宿主解析");
 
 // ---- test 路由：401 → ok:false auth ----
 const t = await call("/api/dsh-token-quota/test", { supplier: "commandcode" });
 assert.equal(t.payload.ok, false);
 assert.match(t.payload.error || "", /401/);
 console.log("✓ test 路由：commandcode 401 →", t.payload.error);
+
+// ---- test 路由：草稿里刚填、还没保存的凭据引用也必须解析（否则「测试连接」必然空密钥失败）----
+const draftTest = await call("/api/dsh-token-quota/test", { supplier: "deepseek", config: { apiKeyEnv: "DRAFT_ONLY_KEY" } });
+assert.equal(draftTest.payload.ok, true, "草稿引用解析后余额查询应成功");
+assert.ok(calls.some((c) => c.auth === "Bearer file-sk-DRAFT_ONLY_KEY"), "测试连接用的是草稿引用的解析值");
+console.log("✓ test 路由：未保存的凭据引用照样解析（DRAFT_ONLY_KEY）");
 
 // ---- refresh 路由（deepseek 强制刷新成功）----
 const r = await call("/api/dsh-token-quota/refresh");

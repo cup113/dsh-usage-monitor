@@ -267,12 +267,14 @@ test("auto-fill writes go through the serial queue and respect a key typed durin
   });
   t.after(() => plugin.cleanup());
   await sleep(60);
-  assert.equal(plugin.config.suppliers.opencode?.apiKey, "key-OPENCODE_GO_API_KEY", "自动填入应写入探测到的密钥");
+  assert.equal(plugin.config.suppliers.opencode?.apiKeyEnv, "OPENCODE_GO_API_KEY", "自动填入应写入探测到的凭据引用");
+  assert.equal(plugin.config.suppliers.opencode?.apiKey ?? "", "", "自动填入不得把密钥本体写进配置");
   // 用户在同一窗口手动填写密钥 → 后续扫描不得覆盖
   plugin.config.suppliers.opencode = { ...plugin.config.suppliers.opencode, apiKey: "sk-manual" };
   plugin.layer.suppliers.opencode = { apiKey: "sk-manual" };
   await plugin.call("/api/dsh-token-quota/rescan");
   assert.equal(plugin.config.suppliers.opencode.apiKey, "sk-manual", "已手动设置的密钥不得被自动填入覆盖");
+  assert.equal(plugin.config.suppliers.opencode.apiKeyEnv, "OPENCODE_GO_API_KEY", "已手动设置密钥时引用保持原样");
 });
 
 test("a scan failure keeps the last discovery, and a successful empty scan removes it", async (t) => {
@@ -310,7 +312,8 @@ test("a scan failure keeps the last discovery, and a successful empty scan remov
   assert.equal(cleared.detect.error, null);
 
   // 「无密钥、未启用、仅残留 autoSource」：成功重扫后 added 必须为 false
-  plugin.updateConfig({ suppliers: { opencode: { enabled: false, apiKey: "" } } });
+  // （凭据引用也算已填密钥，所以清理时必须连 apiKeyEnv 一起清掉，否则这条前提不成立）
+  plugin.updateConfig({ suppliers: { opencode: { enabled: false, apiKey: "", apiKeyEnv: "" } } });
   plugin.layer.suppliers = {};
   await plugin.call("/api/dsh-token-quota/rescan");
   const idle = await plugin.readState();
